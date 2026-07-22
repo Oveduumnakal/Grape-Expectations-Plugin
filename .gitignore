@@ -1,0 +1,13 @@
+.gradle
+build
+.idea/
+.project
+.settings/
+.classpath
+nbactions.xml
+nb-configuration.xml
+nbproject/
+/.claude
+
+# Local planning/handoff doc — kept in the repo dir for reference, never committed.
+/HANDOFF.md

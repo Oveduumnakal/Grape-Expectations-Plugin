@@ -44,6 +44,7 @@ public class FermentTimer
 	private final int durationTicks;
 	private boolean active;
 	private int endTick;
+	private long endMillis;
 
 	public FermentTimer()
 	{
@@ -58,12 +59,16 @@ public class FermentTimer
 	/**
 	 * (Re)starts the countdown from the given tick — call when a new unfermented wine appears.
 	 *
+	 * <p>The wall-clock end time is anchored alongside the tick end so the overlay bar can
+	 * interpolate smoothly between ticks; game-logic checks still use the tick-based methods.
+	 *
 	 * @param currentTick the game tick at which the wine was created
 	 */
 	public void reset(int currentTick)
 	{
 		active = true;
 		endTick = currentTick + durationTicks;
+		endMillis = System.currentTimeMillis() + Math.round(durationTicks * TICK_SECONDS * 1000);
 	}
 
 	/** Stops the countdown — call once the batch has fermented or the state is cleared. */
@@ -71,6 +76,7 @@ public class FermentTimer
 	{
 		active = false;
 		endTick = 0;
+		endMillis = 0;
 	}
 
 	/**
@@ -120,5 +126,38 @@ public class FermentTimer
 			return 0.0;
 
 		return Math.max(0.0, Math.min(1.0, remainingTicks(currentTick) / (double) durationTicks));
+	}
+
+	/**
+	 * Wall-clock fraction of the window still remaining, for a smooth per-frame overlay bar.
+	 *
+	 * <p>Unlike {@link #fraction(int)}, which steps once per 0.6s game tick, this interpolates
+	 * continuously against {@link System#currentTimeMillis()} so the countdown bar drains
+	 * smoothly rather than in jerky tick-sized jumps.
+	 *
+	 * @return a value in [0, 1]; 0 when inactive or elapsed
+	 */
+	public double smoothFraction()
+	{
+		if (!active || durationTicks <= 0)
+			return 0.0;
+
+		double totalMillis = durationTicks * TICK_SECONDS * 1000;
+		double remaining = endMillis - System.currentTimeMillis();
+
+		return Math.max(0.0, Math.min(1.0, remaining / totalMillis));
+	}
+
+	/**
+	 * Wall-clock seconds left until fermentation, for the smoothly updating row label.
+	 *
+	 * @return remaining seconds, or 0 when inactive or elapsed
+	 */
+	public double smoothRemainingSeconds()
+	{
+		if (!active)
+			return 0.0;
+
+		return Math.max(0.0, (endMillis - System.currentTimeMillis()) / 1000.0);
 	}
 }

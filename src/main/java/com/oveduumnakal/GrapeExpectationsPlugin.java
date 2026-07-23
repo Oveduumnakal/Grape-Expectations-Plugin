@@ -29,10 +29,12 @@ import javax.inject.Inject;
 import com.google.inject.Provides;
 
 import net.runelite.api.Client;
+import net.runelite.api.Experience;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Skill;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -75,7 +77,7 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	private GrapeExpectationsOverlay overlay;
 	private WineTally inventory = WineTally.EMPTY;
-	private int bankUnfermented;
+	private WineTally bank = WineTally.EMPTY;
 	private volatile WineTally tally = WineTally.EMPTY;
 	private int previousUnfermented;
 
@@ -100,22 +102,15 @@ public class GrapeExpectationsPlugin extends Plugin
 		ItemContainer container = event.getItemContainer();
 
 		if (event.getContainerId() == InventoryID.INV)
-			inventory = new WineTally(
-					container.count(ItemID.GRAPES),
-					container.count(ItemID.JUG_WATER),
-					container.count(ItemID.JUG_UNFERMENTED_WINE),
-					container.count(ItemID.JUG_WINE));
+			inventory = tallyOf(container);
 		else if (event.getContainerId() == InventoryID.BANK)
-			bankUnfermented = container.count(ItemID.JUG_UNFERMENTED_WINE);
+			bank = tallyOf(container);
 		else
 			return;
 
-		int unfermented = inventory.getUnfermentedWine() + bankUnfermented;
-		tally = new WineTally(
-				inventory.getGrapes(),
-				inventory.getJugsOfWater(),
-				unfermented,
-				inventory.getJugsOfWine());
+		recomputeTally();
+
+		int unfermented = tally.getUnfermentedWine();
 
 		if (unfermented > previousUnfermented)
 			timer.reset(client.getTickCount());
@@ -123,6 +118,39 @@ public class GrapeExpectationsPlugin extends Plugin
 			timer.clear();
 
 		previousUnfermented = unfermented;
+	}
+
+	/** Snapshots the four wine-relevant counts from an item container. */
+	private static WineTally tallyOf(ItemContainer container)
+	{
+		return new WineTally(
+				container.count(ItemID.GRAPES),
+				container.count(ItemID.JUG_WATER),
+				container.count(ItemID.JUG_UNFERMENTED_WINE),
+				container.count(ItemID.JUG_WINE));
+	}
+
+	/** Combines the last-seen inventory and bank counts into the overlay-facing tally. */
+	private void recomputeTally()
+	{
+		tally = new WineTally(
+				inventory.getGrapes() + bank.getGrapes(),
+				inventory.getJugsOfWater() + bank.getJugsOfWater(),
+				inventory.getUnfermentedWine() + bank.getUnfermentedWine(),
+				inventory.getJugsOfWine() + bank.getJugsOfWine());
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (!timer.isActive() || timer.remainingTicks(client.getTickCount()) > 0)
+			return;
+
+		inventory = inventory.withoutUnfermented();
+		bank = bank.withoutUnfermented();
+		recomputeTally();
+		timer.clear();
+		previousUnfermented = 0;
 	}
 
 	@Subscribe
@@ -137,7 +165,7 @@ public class GrapeExpectationsPlugin extends Plugin
 	private void reset()
 	{
 		inventory = WineTally.EMPTY;
-		bankUnfermented = 0;
+		bank = WineTally.EMPTY;
 		tally = WineTally.EMPTY;
 		timer.clear();
 		previousUnfermented = 0;
@@ -155,12 +183,12 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	double getFermentFraction()
 	{
-		return timer.fraction(client.getTickCount());
+		return timer.smoothFraction();
 	}
 
 	double getFermentRemainingSeconds()
 	{
-		return timer.remainingSeconds(client.getTickCount());
+		return timer.smoothRemainingSeconds();
 	}
 
 	int getCookingLevel()
@@ -175,12 +203,7 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	double getBankedXp()
 	{
-		int unfermented = tally.getUnfermentedWine();
-
-		if (config.xpMode() == XpMode.OPTIMISTIC)
-			return unfermented * (double) WineXpModel.FERMENT_XP;
-
-		return WineXpModel.bankedXp(unfermented, getCookingLevel());
+		return WineXpModel.bankedXp(tally.getUnfermentedWine(), getCookingLevel());
 	}
 
 	LevelProjection getProjection()
@@ -188,38 +211,20 @@ public class GrapeExpectationsPlugin extends Plugin
 		return WineXpModel.project(getCookingXp(), getBankedXp());
 	}
 
+	/**
+	 * Wines still needed to reach the next level, counting the batch already fermenting.
+	 *
+	 * <p>The estimate is taken from the projected XP (current XP plus the batch's expected
+	 * banked XP) rather than the raw current XP, so it decreases live as more wine is made
+	 * instead of only stepping once the batch ferments.
+	 *
+	 * @return wines to the next level from the projected position
+	 */
 	int getWinesToNextLevel()
 	{
-		return WineXpModel.winesToNextLevel(getCookingXp());
-	}
+		double projectedXp = Math.min(getCookingXp() + getBankedXp(), Experience.MAX_SKILL_XP);
 
-	int getWinesTo99()
-	{
-		return WineXpModel.winesToLevel(getCookingXp(), 99);
-	}
-
-	boolean pricesKnown()
-	{
-		return itemManager.getItemPrice(ItemID.GRAPES) > 0
-				&& itemManager.getItemPrice(ItemID.JUG_WATER) > 0
-				&& itemManager.getItemPrice(ItemID.JUG_WINE) > 0;
-	}
-
-	int getWineMarginPerWine()
-	{
-		return WineCostModel.marginPerWine(
-				itemManager.getItemPrice(ItemID.GRAPES),
-				itemManager.getItemPrice(ItemID.JUG_WATER),
-				itemManager.getItemPrice(ItemID.JUG_WINE));
-	}
-
-	long getBatchMargin()
-	{
-		return WineCostModel.totalMargin(
-				tally.getUnfermentedWine(),
-				itemManager.getItemPrice(ItemID.GRAPES),
-				itemManager.getItemPrice(ItemID.JUG_WATER),
-				itemManager.getItemPrice(ItemID.JUG_WINE));
+		return WineXpModel.winesToNextLevel((int) Math.floor(projectedXp));
 	}
 
 	@Provides

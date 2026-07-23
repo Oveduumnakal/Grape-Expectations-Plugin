@@ -41,10 +41,12 @@ import net.runelite.client.util.AsyncBufferedImage;
 
 /**
  * Draggable in-game overlay rendering the four wine-fermenting rows: inventory counts
- * (grapes / jug of water / fermenting wine), the banked Cooking XP, a projected level
- * progress bar, and a decreasing fermentation countdown. Each row is shown only when its
- * config toggle is on and it has something to display; the whole overlay hides when the
- * player holds none of the relevant items.
+ * (grapes / jug of water / fermenting wine) spread evenly across the row, a projected
+ * level progress bar labelled with its percent and the wines still needed to level, the
+ * estimated Cooking XP the batch will bank, and a smoothly decreasing fermentation
+ * countdown. The box keeps a fixed width so it never snaps between sizes; each row is
+ * shown only when its config toggle is on and there is something to display, and the whole
+ * overlay hides when the player holds none of the relevant items.
  */
 public class GrapeExpectationsOverlay extends Overlay
 {
@@ -52,19 +54,15 @@ public class GrapeExpectationsOverlay extends Overlay
 	private static final Color BORDER = new Color(56, 48, 35);
 	private static final Color TEXT = Color.WHITE;
 	private static final Color COUNT_COLOR = new Color(220, 220, 220);
-	private static final Color LEVEL_LABEL_COLOR = new Color(200, 200, 200);
 	private static final Color TRACK = new Color(40, 40, 40);
-	private static final Color PROFIT_COLOR = new Color(120, 200, 120);
-	private static final Color LOSS_COLOR = new Color(220, 110, 110);
 
 	private static final int PAD = 6;
+	private static final int CONTENT_WIDTH = 168;
+	private static final int WIDTH = PAD * 2 + CONTENT_WIDTH;
 	private static final int ICON = 18;
 	private static final int ICON_GAP = 3;
-	private static final int SEG_GAP = 10;
 	private static final int ROW_GAP = 5;
-	private static final int BAR_WIDTH = 150;
 	private static final int BAR_HEIGHT = 14;
-	private static final int LEVEL_LABEL_GAP = 5;
 
 	private final GrapeExpectationsPlugin plugin;
 	private final GrapeExpectationsConfig config;
@@ -95,37 +93,19 @@ public class GrapeExpectationsOverlay extends Overlay
 
 		boolean fermenting = tally.isFermenting();
 		boolean showCounts = config.showCounts();
-		boolean showXp = config.showBankedXp() && fermenting;
 		boolean showLevel = config.showLevelProgress() && fermenting;
-		String estimatesText = config.showTargetEstimates() ? estimatesText() : "";
-		boolean showEstimates = !estimatesText.isEmpty();
-		boolean showCost = config.showCostEstimate() && plugin.pricesKnown();
-		String costText = showCost ? costText() : "";
+		boolean showXp = config.showBankedXp() && fermenting;
 		boolean showTimer = config.showFermentTimer() && plugin.isFermenting();
 
-		if (!showCounts && !showXp && !showLevel && !showEstimates && !showCost && !showTimer)
+		if (!showCounts && !showLevel && !showXp && !showTimer)
 			return null;
 
 		LevelProjection projection = showLevel ? plugin.getProjection() : null;
-		String bankedText = showXp ? bankedText(plugin.getBankedXp()) : null;
-
-		int countsW = showCounts ? countsWidth(fm, tally) : 0;
-		int xpW = showXp ? fm.stringWidth(bankedText) : 0;
-		int levelW = showLevel ? levelRowWidth(fm, projection) : 0;
-		int estW = showEstimates ? fm.stringWidth(estimatesText) : 0;
-		int costW = showCost ? fm.stringWidth(costText) : 0;
-		int timerW = showTimer ? BAR_WIDTH : 0;
-		int content = Math.max(
-				Math.max(Math.max(countsW, xpW), Math.max(levelW, estW)),
-				Math.max(costW, timerW));
-		int width = PAD * 2 + content;
 
 		int[] rowHeights = {
 				showCounts ? ICON : 0,
-				showXp ? lineHeight : 0,
 				showLevel ? BAR_HEIGHT : 0,
-				showEstimates ? lineHeight : 0,
-				showCost ? lineHeight : 0,
+				showXp ? lineHeight : 0,
 				showTimer ? BAR_HEIGHT : 0
 		};
 		int rowCount = 0;
@@ -143,9 +123,9 @@ public class GrapeExpectationsOverlay extends Overlay
 		int height = PAD * 2 + bodyHeight + Math.max(0, rowCount - 1) * ROW_GAP;
 
 		graphics.setColor(BACKGROUND);
-		graphics.fillRect(0, 0, width, height);
+		graphics.fillRect(0, 0, WIDTH, height);
 		graphics.setColor(BORDER);
-		graphics.drawRect(0, 0, width - 1, height - 1);
+		graphics.drawRect(0, 0, WIDTH - 1, height - 1);
 
 		int y = PAD;
 
@@ -155,105 +135,70 @@ public class GrapeExpectationsOverlay extends Overlay
 			y += ICON + ROW_GAP;
 		}
 
-		if (showXp)
-		{
-			graphics.setColor(config.bankedXpColor());
-			graphics.drawString(bankedText, PAD, y + fm.getAscent());
-			y += lineHeight + ROW_GAP;
-		}
-
 		if (showLevel)
 		{
-			drawLevelRow(graphics, fm, PAD, y, projection);
+			drawLevelBar(graphics, fm, PAD, y, projection);
 			y += BAR_HEIGHT + ROW_GAP;
 		}
 
-		if (showEstimates)
+		if (showXp)
 		{
-			graphics.setColor(LEVEL_LABEL_COLOR);
-			graphics.drawString(estimatesText, PAD, y + fm.getAscent());
-			y += lineHeight + ROW_GAP;
-		}
-
-		if (showCost)
-		{
-			graphics.setColor(plugin.getWineMarginPerWine() >= 0 ? PROFIT_COLOR : LOSS_COLOR);
-			graphics.drawString(costText, PAD, y + fm.getAscent());
+			String text = estXpText(plugin.getBankedXp());
+			int textX = PAD + (CONTENT_WIDTH - fm.stringWidth(text)) / 2;
+			graphics.setColor(config.bankedXpColor());
+			graphics.drawString(text, textX, y + fm.getAscent());
 			y += lineHeight + ROW_GAP;
 		}
 
 		if (showTimer)
 		{
 			String label = timerLabel(plugin.getFermentRemainingSeconds());
-			ProgressBar.draw(graphics, PAD, y, BAR_WIDTH, BAR_HEIGHT, plugin.getFermentFraction(),
+			ProgressBar.draw(graphics, PAD, y, CONTENT_WIDTH, BAR_HEIGHT, plugin.getFermentFraction(),
 					config.timerBarColor(), TRACK, BORDER, label, TEXT, fm);
 		}
 
-		return new Dimension(width, height);
+		return new Dimension(WIDTH, height);
 	}
 
-	/** Draws the three icon-and-count segments of row 1 left to right. */
+	/** Draws the three icon-and-count segments of row 1, one centred in each equal third. */
 	private void drawCounts(Graphics2D g, FontMetrics fm, int x, int y, WineTally tally)
 	{
-		int cx = x;
-		cx = drawCount(g, fm, cx, y, ItemID.GRAPES, tally.getGrapes());
-		cx = drawCount(g, fm, cx, y, ItemID.JUG_WATER, tally.getJugsOfWater());
-		drawCount(g, fm, cx, y, ItemID.JUG_UNFERMENTED_WINE, tally.getUnfermentedWine());
+		int[] ids = {ItemID.GRAPES, ItemID.JUG_WATER, ItemID.JUG_UNFERMENTED_WINE};
+		int[] counts = {tally.getGrapes(), tally.getJugsOfWater(), tally.getUnfermentedWine()};
+		int cellWidth = CONTENT_WIDTH / ids.length;
+
+		for (int i = 0; i < ids.length; i++)
+		{
+			int segWidth = ICON + ICON_GAP + fm.stringWidth(String.valueOf(counts[i]));
+			int segX = x + i * cellWidth + (cellWidth - segWidth) / 2;
+			drawCount(g, fm, segX, y, ids[i], counts[i]);
+		}
 	}
 
-	/** Draws one icon-and-count segment and returns the x at which the next segment starts. */
-	private int drawCount(Graphics2D g, FontMetrics fm, int x, int y, int itemId, int count)
+	/** Draws one icon-and-count segment starting at the given x. */
+	private void drawCount(Graphics2D g, FontMetrics fm, int x, int y, int itemId, int count)
 	{
 		g.drawImage(iconFor(itemId), x, y, ICON, ICON, null);
 
 		int textX = x + ICON + ICON_GAP;
 		int baseline = y + (ICON + fm.getAscent() - fm.getDescent()) / 2;
-		String text = String.valueOf(count);
 		g.setColor(COUNT_COLOR);
-		g.drawString(text, textX, baseline);
-
-		return textX + fm.stringWidth(text) + SEG_GAP;
+		g.drawString(String.valueOf(count), textX, baseline);
 	}
 
-	/** Draws the row 3 level bar flanked by the projected level and the next level. */
-	private void drawLevelRow(Graphics2D g, FontMetrics fm, int x, int y, LevelProjection projection)
+	/**
+	 * Draws the full-width level bar captioned with its fill percent and the wines still
+	 * needed to reach the next level, e.g. {@code 40% (1,700)}.
+	 */
+	private void drawLevelBar(Graphics2D g, FontMetrics fm, int x, int y, LevelProjection projection)
 	{
-		String left = String.valueOf(projection.getProjectedLevel());
-		String right = String.valueOf(projection.getProjectedLevel() + 1);
-		int baseline = y + (BAR_HEIGHT + fm.getAscent() - fm.getDescent()) / 2;
-
-		g.setColor(LEVEL_LABEL_COLOR);
-		g.drawString(left, x, baseline);
-
-		int barX = x + fm.stringWidth(left) + LEVEL_LABEL_GAP;
-		String pct = Math.round(projection.getFraction() * 100) + "%";
-		ProgressBar.draw(g, barX, y, BAR_WIDTH, BAR_HEIGHT, projection.getFraction(),
-				config.levelBarColor(), TRACK, BORDER, pct, TEXT, fm);
-
-		g.setColor(LEVEL_LABEL_COLOR);
-		g.drawString(right, barX + BAR_WIDTH + LEVEL_LABEL_GAP, baseline);
-	}
-
-	private int countsWidth(FontMetrics fm, WineTally tally)
-	{
-		int total = segmentWidth(fm, tally.getGrapes())
-				+ segmentWidth(fm, tally.getJugsOfWater())
-				+ segmentWidth(fm, tally.getUnfermentedWine());
-
-		return total - SEG_GAP;
-	}
-
-	private int segmentWidth(FontMetrics fm, int count)
-	{
-		return ICON + ICON_GAP + fm.stringWidth(String.valueOf(count)) + SEG_GAP;
-	}
-
-	private int levelRowWidth(FontMetrics fm, LevelProjection projection)
-	{
-		String left = String.valueOf(projection.getProjectedLevel());
-		String right = String.valueOf(projection.getProjectedLevel() + 1);
-
-		return fm.stringWidth(left) + LEVEL_LABEL_GAP + BAR_WIDTH + LEVEL_LABEL_GAP + fm.stringWidth(right);
+		int pct = (int) Math.round(projection.getFraction() * 100);
+		int wines = plugin.getWinesToNextLevel();
+		String label = wines > 0
+				? pct + "% (" + String.format("%,d", wines) + ")"
+				: pct + "%";
+		ProgressBar.draw(g, x, y, CONTENT_WIDTH, BAR_HEIGHT, projection.getFraction(),
+				config.levelBarColor(), TRACK, BORDER, label, TEXT, fm);
 	}
 
 	private AsyncBufferedImage iconFor(int itemId)
@@ -261,48 +206,9 @@ public class GrapeExpectationsOverlay extends Overlay
 		return iconCache.computeIfAbsent(itemId, itemManager::getImage);
 	}
 
-	private static String bankedText(double bankedXp)
+	private static String estXpText(double bankedXp)
 	{
-		return "Banked +" + String.format("%,d", Math.round(bankedXp)) + " xp";
-	}
-
-	/** Builds the "wines to next level / to 99" line, omitting either part once reached. */
-	private String estimatesText()
-	{
-		int next = plugin.getWinesToNextLevel();
-		int to99 = plugin.getWinesTo99();
-		StringBuilder text = new StringBuilder();
-
-		if (next > 0)
-			text.append("Next: ").append(String.format("%,dw", next));
-
-		if (to99 > 0)
-		{
-			if (text.length() > 0)
-				text.append("  ·  ");
-
-			text.append("99: ").append(String.format("%,dw", to99));
-		}
-
-		return text.toString();
-	}
-
-	/** Builds the per-wine (and, while fermenting, whole-batch) GE margin line. */
-	private String costText()
-	{
-		StringBuilder text = new StringBuilder(signedGp(plugin.getWineMarginPerWine()));
-		text.append("/wine");
-
-		if (plugin.getTally().isFermenting())
-			text.append("  ·  batch ").append(signedGp(plugin.getBatchMargin()));
-
-		return text.toString();
-	}
-
-	private static String signedGp(long value)
-	{
-		String sign = value >= 0 ? "+" : "-";
-		return sign + String.format("%,d", Math.abs(value)) + " gp";
+		return "Est. xp: " + String.format("%,d", Math.round(bankedXp));
 	}
 
 	private static String timerLabel(double seconds)

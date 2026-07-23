@@ -32,17 +32,17 @@ public class FermentTimerTest
 		assertTrue(timer.isActive());
 		assertEquals(FermentTimer.DURATION_TICKS, timer.remainingTicks(0));
 		assertEquals(1.0, timer.fraction(0), DELTA);
-		assertEquals(13.2, timer.remainingSeconds(0), 1e-6);
+		assertEquals(FermentTimer.DURATION_TICKS * 0.6, timer.remainingSeconds(0), 1e-6);
 	}
 
 	@Test
 	public void countsDownAndClampsAtZero()
 	{
-		FermentTimer timer = new FermentTimer();
+		FermentTimer timer = new FermentTimer(20);
 		timer.reset(0);
-		assertEquals(12, timer.remainingTicks(10));
-		assertEquals(0.5, timer.fraction(11), DELTA);
-		assertEquals(0, timer.remainingTicks(22));
+		assertEquals(10, timer.remainingTicks(10));
+		assertEquals(0.5, timer.fraction(10), DELTA);
+		assertEquals(0, timer.remainingTicks(20));
 		assertEquals(0, timer.remainingTicks(30));
 		assertEquals(0.0, timer.fraction(30), DELTA);
 	}
@@ -54,7 +54,7 @@ public class FermentTimerTest
 		timer.reset(0);
 		timer.reset(5);
 		assertEquals(FermentTimer.DURATION_TICKS, timer.remainingTicks(5));
-		assertEquals(0, timer.remainingTicks(27));
+		assertEquals(0, timer.remainingTicks(5 + FermentTimer.DURATION_TICKS));
 	}
 
 	@Test

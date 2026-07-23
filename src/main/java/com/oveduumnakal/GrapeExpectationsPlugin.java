@@ -48,9 +48,11 @@ import net.runelite.client.ui.overlay.OverlayManager;
 /**
  * Tracks wine fermenting and drives the {@link GrapeExpectationsOverlay}.
  *
- * <p>Inventory changes recompute the {@link WineTally} and, when a fresh unfermented wine
- * appears, restart the {@link FermentTimer} (matching the in-game restart-on-new-wine
- * behaviour); the timer is cleared once the batch converts. Cooking level and XP are read
+ * <p>Inventory and bank changes recompute the {@link WineTally}; each tick, once those changes
+ * have settled, a rise in the combined unfermented count restarts the {@link FermentTimer}
+ * (matching the in-game restart-on-new-wine behaviour) while a transfer between the two
+ * containers leaves it alone, and the timer is cleared once the batch converts. Cooking level
+ * and XP are read
  * live from the client so the banked-XP and level-projection rows stay current. All state
  * is reset on logout or world hop.
  */
@@ -109,15 +111,6 @@ public class GrapeExpectationsPlugin extends Plugin
 			return;
 
 		recomputeTally();
-
-		int unfermented = tally.getUnfermentedWine();
-
-		if (unfermented > previousUnfermented)
-			timer.reset(client.getTickCount());
-		else if (unfermented == 0)
-			timer.clear();
-
-		previousUnfermented = unfermented;
 	}
 
 	/** Snapshots the four wine-relevant counts from an item container. */
@@ -140,17 +133,43 @@ public class GrapeExpectationsPlugin extends Plugin
 				inventory.getJugsOfWine() + bank.getJugsOfWine());
 	}
 
+	/**
+	 * Advances the ferment timer once per tick, after container changes have settled.
+	 *
+	 * <p>First handles batch expiry: when the ferment window elapses the whole batch converts,
+	 * so the unfermented counts are zeroed and the timer cleared. This also covers bank-held
+	 * batches, which fire no container event when they ferment.
+	 *
+	 * <p>Otherwise the timer reset/clear is decided here rather than per container event, so both
+	 * the INV and BANK changes for the tick are already reflected in the combined tally. A rise in
+	 * the combined unfermented count restarts the countdown, matching the in-game behaviour where
+	 * the whole batch ferments together and making another wine pushes the timer back to full.
+	 * Moving unfermented wine between inventory and bank leaves the combined total unchanged within
+	 * the tick, so a deposit or withdraw mid-ferment neither starts nor restarts the countdown.
+	 *
+	 * @param event the game tick
+	 */
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if (!timer.isActive() || timer.remainingTicks(client.getTickCount()) > 0)
+		if (timer.isActive() && timer.remainingTicks(client.getTickCount()) <= 0)
+		{
+			inventory = inventory.withoutUnfermented();
+			bank = bank.withoutUnfermented();
+			recomputeTally();
+			timer.clear();
+			previousUnfermented = 0;
 			return;
+		}
 
-		inventory = inventory.withoutUnfermented();
-		bank = bank.withoutUnfermented();
-		recomputeTally();
-		timer.clear();
-		previousUnfermented = 0;
+		int unfermented = tally.getUnfermentedWine();
+
+		if (unfermented > previousUnfermented)
+			timer.reset(client.getTickCount());
+		else if (unfermented == 0)
+			timer.clear();
+
+		previousUnfermented = unfermented;
 	}
 
 	@Subscribe

@@ -36,8 +36,8 @@ package com.oveduumnakal;
  */
 public class FermentTimer
 {
-	/** Fermentation window: 22 game ticks (~13.2 seconds). */
-	public static final int DURATION_TICKS = 22;
+	/** Fermentation window: 21 game ticks (~12.6 seconds). */
+	public static final int DURATION_TICKS = 21;
 
 	private static final double TICK_SECONDS = 0.6;
 

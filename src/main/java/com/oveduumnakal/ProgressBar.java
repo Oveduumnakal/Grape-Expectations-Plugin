@@ -40,7 +40,7 @@ final class ProgressBar
 	}
 
 	/**
-	 * Renders the bar at the given position.
+	 * Renders the bar with its caption centred on the caption's own width.
 	 *
 	 * @param g          the canvas graphics context
 	 * @param x          left edge
@@ -48,15 +48,43 @@ final class ProgressBar
 	 * @param width      total bar width including border
 	 * @param height     total bar height including border
 	 * @param fraction   fill amount, clamped to [0, 1]
-	 * @param fill       fill colour
-	 * @param track      background (unfilled) colour
-	 * @param border     outline colour
+	 * @param fill       fill color
+	 * @param track      background (unfilled) color
+	 * @param border     outline color
 	 * @param label      centred caption, or null/empty for none
-	 * @param labelColor caption colour
+	 * @param labelColor caption color
 	 * @param fm         font metrics for centring the caption
 	 */
 	static void draw(Graphics2D g, int x, int y, int width, int height, double fraction,
 			Color fill, Color track, Color border, String label, Color labelColor, FontMetrics fm)
+	{
+		draw(g, x, y, width, height, fraction, fill, track, border, label, label, labelColor, fm);
+	}
+
+	/**
+	 * Renders the bar, centring the caption on a chosen substring rather than the whole caption.
+	 *
+	 * <p>Passing a {@code centerOn} narrower than {@code label} lets a wide trailing glyph (such
+	 * as the {@code %} on a percentage) sit outside the centred span, so the meaningful part —
+	 * e.g. the digits of {@code 22%} — reads as centred rather than being pushed to the left.
+	 *
+	 * @param g          the canvas graphics context
+	 * @param x          left edge
+	 * @param y          top edge
+	 * @param width      total bar width including border
+	 * @param height     total bar height including border
+	 * @param fraction   fill amount, clamped to [0, 1]
+	 * @param fill       fill color
+	 * @param track      background (unfilled) color
+	 * @param border     outline color
+	 * @param label      caption to draw, or null/empty for none
+	 * @param centerOn   substring of {@code label} whose width is centred; the caption is drawn so
+	 *                   this leading run is centred in the bar
+	 * @param labelColor caption color
+	 * @param fm         font metrics for centring the caption
+	 */
+	static void draw(Graphics2D g, int x, int y, int width, int height, double fraction,
+			Color fill, Color track, Color border, String label, String centerOn, Color labelColor, FontMetrics fm)
 	{
 		double clamped = Math.max(0.0, Math.min(1.0, fraction));
 		int fillWidth = (int) Math.round((width - 2) * clamped);
@@ -73,7 +101,8 @@ final class ProgressBar
 		if (label == null || label.isEmpty())
 			return;
 
-		int textX = x + (width - fm.stringWidth(label)) / 2;
+		String measure = centerOn == null ? label : centerOn;
+		int textX = x + (width - fm.stringWidth(measure)) / 2;
 		int textY = y + (height + fm.getAscent() - fm.getDescent()) / 2;
 		g.setColor(labelColor);
 		g.drawString(label, textX, textY);

@@ -29,6 +29,7 @@ import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import net.runelite.api.gameval.ItemID;
@@ -44,9 +45,10 @@ import net.runelite.client.util.AsyncBufferedImage;
  * (grapes / jug of water / fermenting wine) spread evenly across the row, a projected
  * level progress bar labelled with its percent and the wines still needed to level, the
  * estimated Cooking XP the batch will bank, and a smoothly decreasing fermentation
- * countdown. The box keeps a fixed width so it never snaps between sizes; each row is
- * shown only when its config toggle is on and there is something to display, and the whole
- * overlay hides when the player holds none of the relevant items.
+ * countdown. The box keeps a fixed width so it never snaps between sizes; the counts, level,
+ * and Est. xp rows follow their config toggles (the level and Est. xp rows stay visible even
+ * when nothing is fermenting), the timer row additionally requires an active ferment, and the
+ * whole overlay hides when the player holds none of the relevant items.
  */
 public class GrapeExpectationsOverlay extends Overlay
 {
@@ -55,6 +57,11 @@ public class GrapeExpectationsOverlay extends Overlay
 	private static final Color TEXT = Color.WHITE;
 	private static final Color COUNT_COLOR = new Color(220, 220, 220);
 	private static final Color TRACK = new Color(40, 40, 40);
+
+	/** Timer bar gradient stops: full (good), midpoint (warning), and empty (danger). */
+	private static final Color TIMER_GOOD = new Color(79, 191, 79);
+	private static final Color TIMER_WARNING = new Color(224, 196, 45);
+	private static final Color TIMER_DANGER = new Color(206, 58, 47);
 
 	private static final int PAD = 6;
 	private static final int CONTENT_WIDTH = 168;
@@ -91,10 +98,9 @@ public class GrapeExpectationsOverlay extends Overlay
 		FontMetrics fm = graphics.getFontMetrics();
 		int lineHeight = fm.getHeight();
 
-		boolean fermenting = tally.isFermenting();
 		boolean showCounts = config.showCounts();
-		boolean showLevel = config.showLevelProgress() && fermenting;
-		boolean showXp = config.showBankedXp() && fermenting;
+		boolean showLevel = config.showLevelProgress();
+		boolean showXp = config.showBankedXp();
 		boolean showTimer = config.showFermentTimer() && plugin.isFermenting();
 
 		if (!showCounts && !showLevel && !showXp && !showTimer)
@@ -143,7 +149,8 @@ public class GrapeExpectationsOverlay extends Overlay
 
 		if (showXp)
 		{
-			String text = estXpText(plugin.getBankedXp());
+			boolean guaranteed = plugin.getCookingLevel() >= WineFailModel.NO_FAIL_LEVEL;
+			String text = estXpText(plugin.getBankedXp(), guaranteed);
 			int textX = PAD + (CONTENT_WIDTH - fm.stringWidth(text)) / 2;
 			graphics.setColor(config.bankedXpColor());
 			graphics.drawString(text, textX, y + fm.getAscent());
@@ -152,9 +159,10 @@ public class GrapeExpectationsOverlay extends Overlay
 
 		if (showTimer)
 		{
-			String label = timerLabel(plugin.getFermentRemainingSeconds());
-			ProgressBar.draw(graphics, PAD, y, CONTENT_WIDTH, BAR_HEIGHT, plugin.getFermentFraction(),
-					config.timerBarColor(), TRACK, BORDER, label, TEXT, fm);
+			double fraction = plugin.getFermentFraction();
+			String seconds = String.format(Locale.US, "%.1f", plugin.getFermentRemainingSeconds());
+			ProgressBar.draw(graphics, PAD, y, CONTENT_WIDTH, BAR_HEIGHT, fraction,
+					timerColor(fraction), TRACK, BORDER, seconds + "s", seconds, TEXT, fm);
 		}
 
 		return new Dimension(WIDTH, height);
@@ -194,12 +202,21 @@ public class GrapeExpectationsOverlay extends Overlay
 	private void drawLevelBar(Graphics2D g, FontMetrics fm, int x, int y, LevelProjection projection)
 	{
 		int pct = (int) Math.round(projection.getFraction() * 100);
-		int wines = plugin.getWinesToNextLevel();
-		String label = wines > 0
-				? pct + "% (" + ShortFormat.value(wines) + ")"
-				: pct + "%";
+		String label = pct + "%";
+		String centerOn = Integer.toString(pct);
+
+		if (config.showWinesToNextLevel())
+		{
+			int wines = plugin.getWinesToNextLevel();
+
+			if (wines > 0)
+			{
+				label = pct + "% (" + String.format(Locale.US, "%,d", wines) + ")";
+				centerOn = label;
+			}
+		}
 		ProgressBar.draw(g, x, y, CONTENT_WIDTH, BAR_HEIGHT, projection.getFraction(),
-				config.levelBarColor(), TRACK, BORDER, label, TEXT, fm);
+				config.levelBarColor(), TRACK, BORDER, label, centerOn, TEXT, fm);
 	}
 
 	private AsyncBufferedImage iconFor(int itemId)
@@ -207,14 +224,46 @@ public class GrapeExpectationsOverlay extends Overlay
 		return iconCache.computeIfAbsent(itemId, itemManager::getImage);
 	}
 
-	private static String estXpText(double bankedXp)
+	/**
+	 * Builds the XP row caption. Below the no-fail level the banked XP is an expectation, so it is
+	 * prefixed {@code Est. XP:}; once fermenting can no longer fail it is exact, so it reads {@code XP:}.
+	 *
+	 * @param bankedXp   the projected banked XP
+	 * @param guaranteed whether every wine is guaranteed to ferment (success rate 100%)
+	 * @return the row caption
+	 */
+	private static String estXpText(double bankedXp, boolean guaranteed)
 	{
-		return "Est. xp: " + ShortFormat.value(Math.round(bankedXp));
+		String prefix = guaranteed ? "XP: " : "Est. XP: ";
+
+		return prefix + ShortFormat.value(Math.round(bankedXp));
 	}
 
-	private static String timerLabel(double seconds)
+	/**
+	 * Maps the fraction of the ferment window still remaining to a good→warning→danger fill:
+	 * green when full, yellow at the midpoint, red as it empties.
+	 *
+	 * @param fraction remaining fraction, clamped to [0, 1]
+	 * @return the interpolated bar color
+	 */
+	private static Color timerColor(double fraction)
 	{
-		return (int) Math.ceil(seconds) + "s";
+		double f = Math.max(0.0, Math.min(1.0, fraction));
+
+		return f >= 0.5
+				? lerp(TIMER_WARNING, TIMER_GOOD, (f - 0.5) / 0.5)
+				: lerp(TIMER_DANGER, TIMER_WARNING, f / 0.5);
+	}
+
+	/** Linearly interpolates each RGB channel from {@code from} at t=0 to {@code to} at t=1. */
+	private static Color lerp(Color from, Color to, double t)
+	{
+		double clamped = Math.max(0.0, Math.min(1.0, t));
+		int r = (int) Math.round(from.getRed() + (to.getRed() - from.getRed()) * clamped);
+		int g = (int) Math.round(from.getGreen() + (to.getGreen() - from.getGreen()) * clamped);
+		int b = (int) Math.round(from.getBlue() + (to.getBlue() - from.getBlue()) * clamped);
+
+		return new Color(r, g, b);
 	}
 
 	private static boolean isIdle(WineTally tally)

@@ -52,10 +52,7 @@ public class GrapeExpectationsOverlay extends Overlay
 	private static final Color BORDER = new Color(56, 48, 35);
 	private static final Color TEXT = Color.WHITE;
 	private static final Color COUNT_COLOR = new Color(220, 220, 220);
-	private static final Color XP_COLOR = new Color(255, 193, 87);
 	private static final Color LEVEL_LABEL_COLOR = new Color(200, 200, 200);
-	private static final Color LEVEL_FILL = new Color(70, 130, 200);
-	private static final Color TIMER_FILL = new Color(80, 170, 80);
 	private static final Color TRACK = new Color(40, 40, 40);
 
 	private static final int PAD = 6;
@@ -148,7 +145,7 @@ public class GrapeExpectationsOverlay extends Overlay
 
 		if (showXp)
 		{
-			graphics.setColor(XP_COLOR);
+			graphics.setColor(config.bankedXpColor());
 			graphics.drawString(bankedText, PAD, y + fm.getAscent());
 			y += lineHeight + ROW_GAP;
 		}
@@ -163,7 +160,7 @@ public class GrapeExpectationsOverlay extends Overlay
 		{
 			String label = timerLabel(plugin.getFermentRemainingSeconds());
 			ProgressBar.draw(graphics, PAD, y, BAR_WIDTH, BAR_HEIGHT, plugin.getFermentFraction(),
-					TIMER_FILL, TRACK, BORDER, label, TEXT, fm);
+					config.timerBarColor(), TRACK, BORDER, label, TEXT, fm);
 		}
 
 		return new Dimension(width, height);
@@ -205,7 +202,7 @@ public class GrapeExpectationsOverlay extends Overlay
 		int barX = x + fm.stringWidth(left) + LEVEL_LABEL_GAP;
 		String pct = Math.round(projection.getFraction() * 100) + "%";
 		ProgressBar.draw(g, barX, y, BAR_WIDTH, BAR_HEIGHT, projection.getFraction(),
-				LEVEL_FILL, TRACK, BORDER, pct, TEXT, fm);
+				config.levelBarColor(), TRACK, BORDER, pct, TEXT, fm);
 
 		g.setColor(LEVEL_LABEL_COLOR);
 		g.drawString(right, barX + BAR_WIDTH + LEVEL_LABEL_GAP, baseline);

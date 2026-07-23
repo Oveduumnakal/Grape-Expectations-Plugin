@@ -109,6 +109,18 @@ public interface GrapeExpectationsConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "showTargetEstimates",
+			name = "Show wines-to-level",
+			description = "Extra row: estimated wines to reach the next level and level 99.",
+			section = rowsSection,
+			position = 5
+	)
+	default boolean showTargetEstimates()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "xpMode",
 			name = "Banked XP mode",
 			description = "Expected weights each wine by its fail chance; Optimistic assumes every wine succeeds.",

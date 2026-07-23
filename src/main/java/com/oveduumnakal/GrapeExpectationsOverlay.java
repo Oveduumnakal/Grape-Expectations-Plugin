@@ -95,9 +95,11 @@ public class GrapeExpectationsOverlay extends Overlay
 		boolean showCounts = config.showCounts();
 		boolean showXp = config.showBankedXp() && fermenting;
 		boolean showLevel = config.showLevelProgress() && fermenting;
+		String estimatesText = config.showTargetEstimates() ? estimatesText() : "";
+		boolean showEstimates = !estimatesText.isEmpty();
 		boolean showTimer = config.showFermentTimer() && plugin.isFermenting();
 
-		if (!showCounts && !showXp && !showLevel && !showTimer)
+		if (!showCounts && !showXp && !showLevel && !showEstimates && !showTimer)
 			return null;
 
 		LevelProjection projection = showLevel ? plugin.getProjection() : null;
@@ -106,14 +108,16 @@ public class GrapeExpectationsOverlay extends Overlay
 		int countsW = showCounts ? countsWidth(fm, tally) : 0;
 		int xpW = showXp ? fm.stringWidth(bankedText) : 0;
 		int levelW = showLevel ? levelRowWidth(fm, projection) : 0;
+		int estW = showEstimates ? fm.stringWidth(estimatesText) : 0;
 		int timerW = showTimer ? BAR_WIDTH : 0;
-		int content = Math.max(Math.max(countsW, xpW), Math.max(levelW, timerW));
+		int content = Math.max(Math.max(Math.max(countsW, xpW), Math.max(levelW, estW)), timerW);
 		int width = PAD * 2 + content;
 
 		int[] rowHeights = {
 				showCounts ? ICON : 0,
 				showXp ? lineHeight : 0,
 				showLevel ? BAR_HEIGHT : 0,
+				showEstimates ? lineHeight : 0,
 				showTimer ? BAR_HEIGHT : 0
 		};
 		int rowCount = 0;
@@ -154,6 +158,13 @@ public class GrapeExpectationsOverlay extends Overlay
 		{
 			drawLevelRow(graphics, fm, PAD, y, projection);
 			y += BAR_HEIGHT + ROW_GAP;
+		}
+
+		if (showEstimates)
+		{
+			graphics.setColor(LEVEL_LABEL_COLOR);
+			graphics.drawString(estimatesText, PAD, y + fm.getAscent());
+			y += lineHeight + ROW_GAP;
 		}
 
 		if (showTimer)
@@ -238,6 +249,27 @@ public class GrapeExpectationsOverlay extends Overlay
 	private static String bankedText(double bankedXp)
 	{
 		return "Banked +" + String.format("%,d", Math.round(bankedXp)) + " xp";
+	}
+
+	/** Builds the "wines to next level / to 99" line, omitting either part once reached. */
+	private String estimatesText()
+	{
+		int next = plugin.getWinesToNextLevel();
+		int to99 = plugin.getWinesTo99();
+		StringBuilder text = new StringBuilder();
+
+		if (next > 0)
+			text.append("Next: ").append(String.format("%,dw", next));
+
+		if (to99 > 0)
+		{
+			if (text.length() > 0)
+				text.append("  ·  ");
+
+			text.append("99: ").append(String.format("%,dw", to99));
+		}
+
+		return text.toString();
 	}
 
 	private static String timerLabel(double seconds)

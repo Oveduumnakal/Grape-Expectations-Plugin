@@ -121,6 +121,18 @@ public interface GrapeExpectationsConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "showCostEstimate",
+			name = "Show GE cost/profit",
+			description = "Extra row: profit or cost per wine (and for the batch) from average GE prices.",
+			section = rowsSection,
+			position = 6
+	)
+	default boolean showCostEstimate()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "xpMode",
 			name = "Banked XP mode",
 			description = "Expected weights each wine by its fail chance; Optimistic assumes every wine succeeds.",

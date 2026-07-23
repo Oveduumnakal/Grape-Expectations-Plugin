@@ -187,6 +187,30 @@ public class GrapeExpectationsPlugin extends Plugin
 		return WineXpModel.winesToLevel(getCookingXp(), 99);
 	}
 
+	boolean pricesKnown()
+	{
+		return itemManager.getItemPrice(ItemID.GRAPES) > 0
+				&& itemManager.getItemPrice(ItemID.JUG_WATER) > 0
+				&& itemManager.getItemPrice(ItemID.JUG_WINE) > 0;
+	}
+
+	int getWineMarginPerWine()
+	{
+		return WineCostModel.marginPerWine(
+				itemManager.getItemPrice(ItemID.GRAPES),
+				itemManager.getItemPrice(ItemID.JUG_WATER),
+				itemManager.getItemPrice(ItemID.JUG_WINE));
+	}
+
+	long getBatchMargin()
+	{
+		return WineCostModel.totalMargin(
+				tally.getUnfermentedWine(),
+				itemManager.getItemPrice(ItemID.GRAPES),
+				itemManager.getItemPrice(ItemID.JUG_WATER),
+				itemManager.getItemPrice(ItemID.JUG_WINE));
+	}
+
 	@Provides
 	GrapeExpectationsConfig provideConfig(ConfigManager configManager)
 	{

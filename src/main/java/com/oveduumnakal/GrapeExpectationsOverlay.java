@@ -54,6 +54,8 @@ public class GrapeExpectationsOverlay extends Overlay
 	private static final Color COUNT_COLOR = new Color(220, 220, 220);
 	private static final Color LEVEL_LABEL_COLOR = new Color(200, 200, 200);
 	private static final Color TRACK = new Color(40, 40, 40);
+	private static final Color PROFIT_COLOR = new Color(120, 200, 120);
+	private static final Color LOSS_COLOR = new Color(220, 110, 110);
 
 	private static final int PAD = 6;
 	private static final int ICON = 18;
@@ -97,9 +99,11 @@ public class GrapeExpectationsOverlay extends Overlay
 		boolean showLevel = config.showLevelProgress() && fermenting;
 		String estimatesText = config.showTargetEstimates() ? estimatesText() : "";
 		boolean showEstimates = !estimatesText.isEmpty();
+		boolean showCost = config.showCostEstimate() && plugin.pricesKnown();
+		String costText = showCost ? costText() : "";
 		boolean showTimer = config.showFermentTimer() && plugin.isFermenting();
 
-		if (!showCounts && !showXp && !showLevel && !showEstimates && !showTimer)
+		if (!showCounts && !showXp && !showLevel && !showEstimates && !showCost && !showTimer)
 			return null;
 
 		LevelProjection projection = showLevel ? plugin.getProjection() : null;
@@ -109,8 +113,11 @@ public class GrapeExpectationsOverlay extends Overlay
 		int xpW = showXp ? fm.stringWidth(bankedText) : 0;
 		int levelW = showLevel ? levelRowWidth(fm, projection) : 0;
 		int estW = showEstimates ? fm.stringWidth(estimatesText) : 0;
+		int costW = showCost ? fm.stringWidth(costText) : 0;
 		int timerW = showTimer ? BAR_WIDTH : 0;
-		int content = Math.max(Math.max(Math.max(countsW, xpW), Math.max(levelW, estW)), timerW);
+		int content = Math.max(
+				Math.max(Math.max(countsW, xpW), Math.max(levelW, estW)),
+				Math.max(costW, timerW));
 		int width = PAD * 2 + content;
 
 		int[] rowHeights = {
@@ -118,6 +125,7 @@ public class GrapeExpectationsOverlay extends Overlay
 				showXp ? lineHeight : 0,
 				showLevel ? BAR_HEIGHT : 0,
 				showEstimates ? lineHeight : 0,
+				showCost ? lineHeight : 0,
 				showTimer ? BAR_HEIGHT : 0
 		};
 		int rowCount = 0;
@@ -164,6 +172,13 @@ public class GrapeExpectationsOverlay extends Overlay
 		{
 			graphics.setColor(LEVEL_LABEL_COLOR);
 			graphics.drawString(estimatesText, PAD, y + fm.getAscent());
+			y += lineHeight + ROW_GAP;
+		}
+
+		if (showCost)
+		{
+			graphics.setColor(plugin.getWineMarginPerWine() >= 0 ? PROFIT_COLOR : LOSS_COLOR);
+			graphics.drawString(costText, PAD, y + fm.getAscent());
 			y += lineHeight + ROW_GAP;
 		}
 
@@ -270,6 +285,24 @@ public class GrapeExpectationsOverlay extends Overlay
 		}
 
 		return text.toString();
+	}
+
+	/** Builds the per-wine (and, while fermenting, whole-batch) GE margin line. */
+	private String costText()
+	{
+		StringBuilder text = new StringBuilder(signedGp(plugin.getWineMarginPerWine()));
+		text.append("/wine");
+
+		if (plugin.getTally().isFermenting())
+			text.append("  ·  batch ").append(signedGp(plugin.getBatchMargin()));
+
+		return text.toString();
+	}
+
+	private static String signedGp(long value)
+	{
+		String sign = value >= 0 ? "+" : "-";
+		return sign + String.format("%,d", Math.abs(value)) + " gp";
 	}
 
 	private static String timerLabel(double seconds)

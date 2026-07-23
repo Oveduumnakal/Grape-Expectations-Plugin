@@ -27,22 +27,31 @@ package com.oveduumnakal;
 import javax.inject.Inject;
 
 import com.google.inject.Provides;
-import lombok.extern.slf4j.Slf4j;
 
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.Skill;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 /**
- * Entry point for the Grape Expectations wine-fermenting tracker.
+ * Tracks wine fermenting and drives the {@link GrapeExpectationsOverlay}.
  *
- * <p>This is the initial scaffold: it registers the {@link GrapeExpectationsConfig}
- * settings and manages the plugin lifecycle. The four-row overlay (inventory counts,
- * banked XP, projected level progress, and the fermentation countdown) and its
- * supporting model classes are implemented under the tracked {@code Release 0.1}
- * milestone issues.
+ * <p>Inventory changes recompute the {@link WineTally} and, when a fresh unfermented wine
+ * appears, restart the {@link FermentTimer} (matching the in-game restart-on-new-wine
+ * behaviour); the timer is cleared once the batch converts. Cooking level and XP are read
+ * live from the client so the banked-XP and level-projection rows stay current. All state
+ * is reset on logout or world hop.
  */
-@Slf4j
 @PluginDescriptor(
 		name = "Grape Expectations",
 		description = "Track wine fermenting: counts, banked Cooking XP, projected level, and a ferment timer",
@@ -51,18 +60,116 @@ import net.runelite.client.plugins.PluginDescriptor;
 public class GrapeExpectationsPlugin extends Plugin
 {
 	@Inject
+	private Client client;
+
+	@Inject
+	private ItemManager itemManager;
+
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
 	private GrapeExpectationsConfig config;
+
+	private final FermentTimer timer = new FermentTimer();
+
+	private GrapeExpectationsOverlay overlay;
+	private volatile WineTally tally = WineTally.EMPTY;
+	private int previousUnfermented;
 
 	@Override
 	protected void startUp()
 	{
-		log.debug("Grape Expectations started");
+		overlay = new GrapeExpectationsOverlay(this, config, itemManager);
+		overlayManager.add(overlay);
 	}
 
 	@Override
 	protected void shutDown()
 	{
-		log.debug("Grape Expectations stopped");
+		overlayManager.remove(overlay);
+		overlay = null;
+		reset();
+	}
+
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged event)
+	{
+		if (event.getContainerId() != InventoryID.INV)
+			return;
+
+		ItemContainer inventory = event.getItemContainer();
+		WineTally updated = new WineTally(
+				inventory.count(ItemID.GRAPES),
+				inventory.count(ItemID.JUG_WATER),
+				inventory.count(ItemID.JUG_UNFERMENTED_WINE),
+				inventory.count(ItemID.JUG_WINE));
+		tally = updated;
+
+		int unfermented = updated.getUnfermentedWine();
+
+		if (unfermented > previousUnfermented)
+			timer.reset(client.getTickCount());
+		else if (unfermented == 0)
+			timer.clear();
+
+		previousUnfermented = unfermented;
+	}
+
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged event)
+	{
+		GameState state = event.getGameState();
+
+		if (state == GameState.LOGIN_SCREEN || state == GameState.HOPPING)
+			reset();
+	}
+
+	private void reset()
+	{
+		tally = WineTally.EMPTY;
+		timer.clear();
+		previousUnfermented = 0;
+	}
+
+	WineTally getTally()
+	{
+		return tally;
+	}
+
+	boolean isFermenting()
+	{
+		return timer.isActive() && timer.remainingTicks(client.getTickCount()) > 0;
+	}
+
+	double getFermentFraction()
+	{
+		return timer.fraction(client.getTickCount());
+	}
+
+	double getFermentRemainingSeconds()
+	{
+		return timer.remainingSeconds(client.getTickCount());
+	}
+
+	int getCookingLevel()
+	{
+		return client.getRealSkillLevel(Skill.COOKING);
+	}
+
+	int getCookingXp()
+	{
+		return client.getSkillExperience(Skill.COOKING);
+	}
+
+	double getBankedXp()
+	{
+		return WineXpModel.bankedXp(tally.getUnfermentedWine(), getCookingLevel());
+	}
+
+	LevelProjection getProjection()
+	{
+		return WineXpModel.project(getCookingXp(), getBankedXp());
 	}
 
 	@Provides

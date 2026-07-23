@@ -38,9 +38,7 @@ public class WineFailModelTest
 	public void increasesMonotonicallyUpToNoFail()
 	{
 		for (int level = WineFailModel.MIN_LEVEL; level < WineFailModel.NO_FAIL_LEVEL; level++)
-		{
 			assertTrue(WineFailModel.successRate(level) < WineFailModel.successRate(level + 1));
-		}
 	}
 
 	@Test

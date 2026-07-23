@@ -71,9 +71,7 @@ public final class WineXpModel
 		int projectedLevel = Experience.getLevelForXp((int) Math.floor(projectedXp));
 
 		if (projectedLevel >= Experience.MAX_VIRT_LEVEL)
-		{
 			return new LevelProjection(currentLevel, Experience.MAX_VIRT_LEVEL, 1.0);
-		}
 
 		int bracketStart = Experience.getXpForLevel(projectedLevel);
 		int bracketEnd = Experience.getXpForLevel(projectedLevel + 1);

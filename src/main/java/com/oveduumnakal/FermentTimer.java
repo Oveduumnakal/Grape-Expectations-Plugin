@@ -92,9 +92,7 @@ public class FermentTimer
 	public int remainingTicks(int currentTick)
 	{
 		if (!active)
-		{
 			return 0;
-		}
 
 		return Math.max(0, endTick - currentTick);
 	}
@@ -119,9 +117,7 @@ public class FermentTimer
 	public double fraction(int currentTick)
 	{
 		if (!active || durationTicks <= 0)
-		{
 			return 0.0;
-		}
 
 		return Math.max(0.0, Math.min(1.0, remainingTicks(currentTick) / (double) durationTicks));
 	}

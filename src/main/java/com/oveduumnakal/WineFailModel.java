@@ -64,9 +64,7 @@ public final class WineFailModel
 	public static double successRate(int cookingLevel)
 	{
 		if (cookingLevel >= NO_FAIL_LEVEL)
-		{
 			return 1.0;
-		}
 
 		double chance = (LOW_CHANCE + (HIGH_CHANCE - LOW_CHANCE) * (cookingLevel - 1) / 98.0) / 100.0;
 

@@ -169,21 +169,22 @@ public class GrapeExpectationsOverlay extends Overlay
 
 		for (int i = 0; i < ids.length; i++)
 		{
-			int segWidth = ICON + ICON_GAP + fm.stringWidth(String.valueOf(counts[i]));
+			String text = ShortFormat.value(counts[i]);
+			int segWidth = ICON + ICON_GAP + fm.stringWidth(text);
 			int segX = x + i * cellWidth + (cellWidth - segWidth) / 2;
-			drawCount(g, fm, segX, y, ids[i], counts[i]);
+			drawCount(g, fm, segX, y, ids[i], text);
 		}
 	}
 
 	/** Draws one icon-and-count segment starting at the given x. */
-	private void drawCount(Graphics2D g, FontMetrics fm, int x, int y, int itemId, int count)
+	private void drawCount(Graphics2D g, FontMetrics fm, int x, int y, int itemId, String count)
 	{
 		g.drawImage(iconFor(itemId), x, y, ICON, ICON, null);
 
 		int textX = x + ICON + ICON_GAP;
 		int baseline = y + (ICON + fm.getAscent() - fm.getDescent()) / 2;
 		g.setColor(COUNT_COLOR);
-		g.drawString(String.valueOf(count), textX, baseline);
+		g.drawString(count, textX, baseline);
 	}
 
 	/**
@@ -195,7 +196,7 @@ public class GrapeExpectationsOverlay extends Overlay
 		int pct = (int) Math.round(projection.getFraction() * 100);
 		int wines = plugin.getWinesToNextLevel();
 		String label = wines > 0
-				? pct + "% (" + String.format("%,d", wines) + ")"
+				? pct + "% (" + ShortFormat.value(wines) + ")"
 				: pct + "%";
 		ProgressBar.draw(g, x, y, CONTENT_WIDTH, BAR_HEIGHT, projection.getFraction(),
 				config.levelBarColor(), TRACK, BORDER, label, TEXT, fm);
@@ -208,7 +209,7 @@ public class GrapeExpectationsOverlay extends Overlay
 
 	private static String estXpText(double bankedXp)
 	{
-		return "Est. xp: " + String.format("%,d", Math.round(bankedXp));
+		return "Est. xp: " + ShortFormat.value(Math.round(bankedXp));
 	}
 
 	private static String timerLabel(double seconds)

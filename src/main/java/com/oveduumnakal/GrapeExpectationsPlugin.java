@@ -74,6 +74,8 @@ public class GrapeExpectationsPlugin extends Plugin
 	private final FermentTimer timer = new FermentTimer();
 
 	private GrapeExpectationsOverlay overlay;
+	private WineTally inventory = WineTally.EMPTY;
+	private int bankUnfermented;
 	private volatile WineTally tally = WineTally.EMPTY;
 	private int previousUnfermented;
 
@@ -95,18 +97,25 @@ public class GrapeExpectationsPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		if (event.getContainerId() != InventoryID.INV)
+		ItemContainer container = event.getItemContainer();
+
+		if (event.getContainerId() == InventoryID.INV)
+			inventory = new WineTally(
+					container.count(ItemID.GRAPES),
+					container.count(ItemID.JUG_WATER),
+					container.count(ItemID.JUG_UNFERMENTED_WINE),
+					container.count(ItemID.JUG_WINE));
+		else if (event.getContainerId() == InventoryID.BANK)
+			bankUnfermented = container.count(ItemID.JUG_UNFERMENTED_WINE);
+		else
 			return;
 
-		ItemContainer inventory = event.getItemContainer();
-		WineTally updated = new WineTally(
-				inventory.count(ItemID.GRAPES),
-				inventory.count(ItemID.JUG_WATER),
-				inventory.count(ItemID.JUG_UNFERMENTED_WINE),
-				inventory.count(ItemID.JUG_WINE));
-		tally = updated;
-
-		int unfermented = updated.getUnfermentedWine();
+		int unfermented = inventory.getUnfermentedWine() + bankUnfermented;
+		tally = new WineTally(
+				inventory.getGrapes(),
+				inventory.getJugsOfWater(),
+				unfermented,
+				inventory.getJugsOfWine());
 
 		if (unfermented > previousUnfermented)
 			timer.reset(client.getTickCount());
@@ -127,6 +136,8 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	private void reset()
 	{
+		inventory = WineTally.EMPTY;
+		bankUnfermented = 0;
 		tally = WineTally.EMPTY;
 		timer.clear();
 		previousUnfermented = 0;

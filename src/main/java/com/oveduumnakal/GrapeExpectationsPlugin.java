@@ -29,10 +29,12 @@ import javax.inject.Inject;
 import com.google.inject.Provides;
 
 import net.runelite.api.Client;
+import net.runelite.api.Experience;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Skill;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -46,9 +48,11 @@ import net.runelite.client.ui.overlay.OverlayManager;
 /**
  * Tracks wine fermenting and drives the {@link GrapeExpectationsOverlay}.
  *
- * <p>Inventory changes recompute the {@link WineTally} and, when a fresh unfermented wine
- * appears, restart the {@link FermentTimer} (matching the in-game restart-on-new-wine
- * behaviour); the timer is cleared once the batch converts. Cooking level and XP are read
+ * <p>Inventory and bank changes recompute the {@link WineTally}; each tick, once those changes
+ * have settled, a rise in the combined unfermented count restarts the {@link FermentTimer}
+ * (matching the in-game restart-on-new-wine behaviour) while a transfer between the two
+ * containers leaves it alone, and the timer is cleared once the batch converts. Cooking level
+ * and XP are read
  * live from the client so the banked-XP and level-projection rows stay current. All state
  * is reset on logout or world hop.
  */
@@ -74,6 +78,8 @@ public class GrapeExpectationsPlugin extends Plugin
 	private final FermentTimer timer = new FermentTimer();
 
 	private GrapeExpectationsOverlay overlay;
+	private WineTally inventory = WineTally.EMPTY;
+	private WineTally bank = WineTally.EMPTY;
 	private volatile WineTally tally = WineTally.EMPTY;
 	private int previousUnfermented;
 
@@ -95,18 +101,68 @@ public class GrapeExpectationsPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		if (event.getContainerId() != InventoryID.INV)
+		ItemContainer container = event.getItemContainer();
+
+		if (event.getContainerId() == InventoryID.INV)
+			inventory = tallyOf(container);
+		else if (event.getContainerId() == InventoryID.BANK)
+			bank = tallyOf(container);
+		else
 			return;
 
-		ItemContainer inventory = event.getItemContainer();
-		WineTally updated = new WineTally(
-				inventory.count(ItemID.GRAPES),
-				inventory.count(ItemID.JUG_WATER),
-				inventory.count(ItemID.JUG_UNFERMENTED_WINE),
-				inventory.count(ItemID.JUG_WINE));
-		tally = updated;
+		recomputeTally();
+	}
 
-		int unfermented = updated.getUnfermentedWine();
+	/** Snapshots the four wine-relevant counts from an item container. */
+	private static WineTally tallyOf(ItemContainer container)
+	{
+		return new WineTally(
+				container.count(ItemID.GRAPES),
+				container.count(ItemID.JUG_WATER),
+				container.count(ItemID.JUG_UNFERMENTED_WINE),
+				container.count(ItemID.JUG_WINE));
+	}
+
+	/** Combines the last-seen inventory and bank counts into the overlay-facing tally. */
+	private void recomputeTally()
+	{
+		tally = new WineTally(
+				inventory.getGrapes() + bank.getGrapes(),
+				inventory.getJugsOfWater() + bank.getJugsOfWater(),
+				inventory.getUnfermentedWine() + bank.getUnfermentedWine(),
+				inventory.getJugsOfWine() + bank.getJugsOfWine());
+	}
+
+	/**
+	 * Advances the ferment timer once per tick, after container changes have settled.
+	 *
+	 * <p>First handles batch expiry: when the ferment window elapses the whole batch converts,
+	 * so the unfermented counts are zeroed and the timer cleared. This also covers bank-held
+	 * batches, which fire no container event when they ferment.
+	 *
+	 * <p>Otherwise the timer reset/clear is decided here rather than per container event, so both
+	 * the INV and BANK changes for the tick are already reflected in the combined tally. A rise in
+	 * the combined unfermented count restarts the countdown, matching the in-game behaviour where
+	 * the whole batch ferments together and making another wine pushes the timer back to full.
+	 * Moving unfermented wine between inventory and bank leaves the combined total unchanged within
+	 * the tick, so a deposit or withdraw mid-ferment neither starts nor restarts the countdown.
+	 *
+	 * @param event the game tick
+	 */
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (timer.isActive() && timer.remainingTicks(client.getTickCount()) <= 0)
+		{
+			inventory = inventory.withoutUnfermented();
+			bank = bank.withoutUnfermented();
+			recomputeTally();
+			timer.clear();
+			previousUnfermented = 0;
+			return;
+		}
+
+		int unfermented = tally.getUnfermentedWine();
 
 		if (unfermented > previousUnfermented)
 			timer.reset(client.getTickCount());
@@ -127,6 +183,8 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	private void reset()
 	{
+		inventory = WineTally.EMPTY;
+		bank = WineTally.EMPTY;
 		tally = WineTally.EMPTY;
 		timer.clear();
 		previousUnfermented = 0;
@@ -144,12 +202,12 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	double getFermentFraction()
 	{
-		return timer.fraction(client.getTickCount());
+		return timer.smoothFraction();
 	}
 
 	double getFermentRemainingSeconds()
 	{
-		return timer.remainingSeconds(client.getTickCount());
+		return timer.smoothRemainingSeconds();
 	}
 
 	int getCookingLevel()
@@ -164,12 +222,7 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	double getBankedXp()
 	{
-		int unfermented = tally.getUnfermentedWine();
-
-		if (config.xpMode() == XpMode.OPTIMISTIC)
-			return unfermented * (double) WineXpModel.FERMENT_XP;
-
-		return WineXpModel.bankedXp(unfermented, getCookingLevel());
+		return WineXpModel.bankedXp(tally.getUnfermentedWine(), getCookingLevel());
 	}
 
 	LevelProjection getProjection()
@@ -177,38 +230,20 @@ public class GrapeExpectationsPlugin extends Plugin
 		return WineXpModel.project(getCookingXp(), getBankedXp());
 	}
 
+	/**
+	 * Wines still needed to reach the next level, counting the batch already fermenting.
+	 *
+	 * <p>The estimate is taken from the projected XP (current XP plus the batch's expected
+	 * banked XP) rather than the raw current XP, so it decreases live as more wine is made
+	 * instead of only stepping once the batch ferments.
+	 *
+	 * @return wines to the next level from the projected position
+	 */
 	int getWinesToNextLevel()
 	{
-		return WineXpModel.winesToNextLevel(getCookingXp());
-	}
+		double projectedXp = Math.min(getCookingXp() + getBankedXp(), Experience.MAX_SKILL_XP);
 
-	int getWinesTo99()
-	{
-		return WineXpModel.winesToLevel(getCookingXp(), 99);
-	}
-
-	boolean pricesKnown()
-	{
-		return itemManager.getItemPrice(ItemID.GRAPES) > 0
-				&& itemManager.getItemPrice(ItemID.JUG_WATER) > 0
-				&& itemManager.getItemPrice(ItemID.JUG_WINE) > 0;
-	}
-
-	int getWineMarginPerWine()
-	{
-		return WineCostModel.marginPerWine(
-				itemManager.getItemPrice(ItemID.GRAPES),
-				itemManager.getItemPrice(ItemID.JUG_WATER),
-				itemManager.getItemPrice(ItemID.JUG_WINE));
-	}
-
-	long getBatchMargin()
-	{
-		return WineCostModel.totalMargin(
-				tally.getUnfermentedWine(),
-				itemManager.getItemPrice(ItemID.GRAPES),
-				itemManager.getItemPrice(ItemID.JUG_WATER),
-				itemManager.getItemPrice(ItemID.JUG_WINE));
+		return WineXpModel.winesToNextLevel((int) Math.floor(projectedXp));
 	}
 
 	@Provides

@@ -35,7 +35,7 @@ import net.runelite.client.config.ConfigSection;
  * RuneLite configuration for the Grape Expectations plugin.
  *
  * <p>Settings are split into two {@code @ConfigSection}s: which of the four overlay rows to
- * show, and appearance (banked-XP valuation plus the row 2/3/4 colours). {@link #GROUP} names
+ * show, and appearance (the estimated-XP text and bar colors). {@link #GROUP} names
  * the persisted config group. The overlay's on-screen position is set by dragging it (RuneLite
  * persists that natively), so it is not a config item. Each accessor's {@code name}/
  * {@code description} is the source of truth shown in the settings UI.
@@ -55,7 +55,7 @@ public interface GrapeExpectationsConfig extends Config
 
 	@ConfigSection(
 			name = "Appearance",
-			description = "Banked-XP valuation and overlay colours",
+			description = "Overlay text and bar colors",
 			position = 1
 	)
 	String appearanceSection = "appearance";
@@ -73,25 +73,37 @@ public interface GrapeExpectationsConfig extends Config
 	}
 
 	@ConfigItem(
-			keyName = "showBankedXp",
-			name = "Show banked XP",
-			description = "Row 2: Cooking XP that will be realized once the wine ferments.",
+			keyName = "showLevelProgress",
+			name = "Show level progress",
+			description = "Row 2: projected level bar with percent and wines to the next level.",
 			section = rowsSection,
 			position = 2
 	)
-	default boolean showBankedXp()
+	default boolean showLevelProgress()
 	{
 		return true;
 	}
 
 	@ConfigItem(
-			keyName = "showLevelProgress",
-			name = "Show level progress",
-			description = "Row 3: projected level progress bar once the banked XP lands.",
+			keyName = "showWinesToNextLevel",
+			name = "Show wines to next level",
+			description = "Include the wines-to-next-level count in the level bar label, e.g. 40% (1,496).",
 			section = rowsSection,
 			position = 3
 	)
-	default boolean showLevelProgress()
+	default boolean showWinesToNextLevel()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "showBankedXp",
+			name = "Show estimated XP",
+			description = "Row 3: estimated Cooking XP that will be realized once the wine ferments.",
+			section = rowsSection,
+			position = 4
+	)
+	default boolean showBankedXp()
 	{
 		return true;
 	}
@@ -101,7 +113,7 @@ public interface GrapeExpectationsConfig extends Config
 			name = "Show ferment timer",
 			description = "Row 4: countdown until the current batch finishes fermenting.",
 			section = rowsSection,
-			position = 4
+			position = 5
 	)
 	default boolean showFermentTimer()
 	{
@@ -109,45 +121,9 @@ public interface GrapeExpectationsConfig extends Config
 	}
 
 	@ConfigItem(
-			keyName = "showTargetEstimates",
-			name = "Show wines-to-level",
-			description = "Extra row: estimated wines to reach the next level and level 99.",
-			section = rowsSection,
-			position = 5
-	)
-	default boolean showTargetEstimates()
-	{
-		return true;
-	}
-
-	@ConfigItem(
-			keyName = "showCostEstimate",
-			name = "Show GE cost/profit",
-			description = "Extra row: profit or cost per wine (and for the batch) from average GE prices.",
-			section = rowsSection,
-			position = 6
-	)
-	default boolean showCostEstimate()
-	{
-		return true;
-	}
-
-	@ConfigItem(
-			keyName = "xpMode",
-			name = "Banked XP mode",
-			description = "Expected weights each wine by its fail chance; Optimistic assumes every wine succeeds.",
-			section = appearanceSection,
-			position = 1
-	)
-	default XpMode xpMode()
-	{
-		return XpMode.EXPECTED;
-	}
-
-	@ConfigItem(
 			keyName = "bankedXpColor",
-			name = "Banked XP colour",
-			description = "Colour of the row 2 banked-XP text.",
+			name = "Est. XP color",
+			description = "Color of the estimated-XP text row.",
 			section = appearanceSection,
 			position = 2
 	)
@@ -158,25 +134,13 @@ public interface GrapeExpectationsConfig extends Config
 
 	@ConfigItem(
 			keyName = "levelBarColor",
-			name = "Level bar colour",
-			description = "Fill colour of the row 3 level progress bar.",
+			name = "Level bar color",
+			description = "Fill color of the row 3 level progress bar.",
 			section = appearanceSection,
 			position = 3
 	)
 	default Color levelBarColor()
 	{
 		return new Color(70, 130, 200);
-	}
-
-	@ConfigItem(
-			keyName = "timerBarColor",
-			name = "Timer bar colour",
-			description = "Fill colour of the row 4 ferment countdown bar.",
-			section = appearanceSection,
-			position = 4
-	)
-	default Color timerBarColor()
-	{
-		return new Color(80, 170, 80);
 	}
 }

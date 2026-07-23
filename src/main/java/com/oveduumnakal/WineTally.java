@@ -52,4 +52,17 @@ public class WineTally
 	{
 		return unfermentedWine > 0;
 	}
+
+	/**
+	 * A copy of this tally with the unfermented-wine count zeroed, leaving the other counts
+	 * intact. Used when the ferment timer expires to drop a batch that finished in the bank
+	 * (which fires no container event while the bank is closed) without disturbing the
+	 * grape, water, and finished-wine counts.
+	 *
+	 * @return a tally identical to this one but with zero unfermented wine
+	 */
+	public WineTally withoutUnfermented()
+	{
+		return new WineTally(grapes, jugsOfWater, 0, jugsOfWine);
+	}
 }

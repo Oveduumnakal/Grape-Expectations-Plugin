@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" width="960" height="320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1a2e"/>
+      <stop offset="1" stop-color="#160d18"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="320" fill="url(#bg)"/>
+
+  <!-- Scattered faint XP / level tokens -->
+  <g fill="#ffd07a" font-family="Arial, sans-serif" font-weight="bold">
+    <text x="120" y="70" font-size="26" opacity="0.22">+1</text>
+    <text x="360" y="250" font-size="22" opacity="0.18">+1</text>
+    <text x="60" y="220" font-size="24" opacity="0.20">lv up</text>
+    <text x="300" y="90" font-size="20" opacity="0.16">+1</text>
+    <text x="230" y="180" font-size="26" opacity="0.20">lv up</text>
+    <text x="410" y="150" font-size="18" opacity="0.14">+1</text>
+  </g>
+
+  <!-- Jug (scaled ~4.4x from the icon), centred on the left -->
+  <g transform="translate(150 70) scale(4.4)">
+    <path d="M31 20 C40 19 40 32 32 32" fill="none" stroke="#6b4f2a" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M16 17 C15 15 33 15 32 17 L34 34 C34 41 14 41 14 34 Z" fill="#d9b477" stroke="#6b4f2a" stroke-width="2"/>
+    <clipPath id="jugB">
+      <path d="M16 17 C15 15 33 15 32 17 L34 34 C34 41 14 41 14 34 Z"/>
+    </clipPath>
+    <rect x="13" y="26" width="22" height="16" fill="#6d213f" clip-path="url(#jugB)"/>
+    <rect x="18" y="9" width="12" height="6" rx="2" fill="#d9b477" stroke="#6b4f2a" stroke-width="2"/>
+    <rect x="16.5" y="30" width="15" height="5" rx="2.5" fill="#2e2e2e" stroke="#1c1c1c" stroke-width="0.6"/>
+    <rect x="17.2" y="30.7" width="8.6" height="3.6" rx="1.8" fill="#58aa58"/>
+  </g>
+
+  <!-- Title -->
+  <g font-family="Georgia, 'Times New Roman', serif">
+    <text x="470" y="160" font-size="62" font-weight="bold" fill="#f3e3c4">Grape</text>
+    <text x="470" y="228" font-size="62" font-weight="bold" fill="#f3e3c4">Expectations</text>
+    <text x="472" y="268" font-size="24" fill="#c9a86a" font-family="Arial, sans-serif">Wine fermenting tracker for RuneLite</text>
+  </g>
+</svg>

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Faint background XP tokens (simplified for the small icon) -->
+  <g fill="#ffd07a" opacity="0.30" font-family="Arial, sans-serif" font-weight="bold">
+    <text x="4" y="12" font-size="8">+1</text>
+    <text x="37" y="44" font-size="8">+1</text>
+  </g>
+
+  <!-- Jug handle -->
+  <path d="M31 20 C40 19 40 32 32 32" fill="none" stroke="#6b4f2a" stroke-width="3.2" stroke-linecap="round"/>
+
+  <!-- Jug body -->
+  <path d="M16 17 C15 15 33 15 32 17 L34 34 C34 41 14 41 14 34 Z"
+        fill="#d9b477" stroke="#6b4f2a" stroke-width="2"/>
+
+  <!-- Wine fill (clipped to the lower jug) -->
+  <clipPath id="jug">
+    <path d="M16 17 C15 15 33 15 32 17 L34 34 C34 41 14 41 14 34 Z"/>
+  </clipPath>
+  <rect x="13" y="26" width="22" height="16" fill="#6d213f" clip-path="url(#jug)"/>
+
+  <!-- Jug neck / lip -->
+  <rect x="18" y="9" width="12" height="6" rx="2" fill="#d9b477" stroke="#6b4f2a" stroke-width="2"/>
+
+  <!-- Progress / timer bar across the jug -->
+  <rect x="16.5" y="30" width="15" height="5" rx="2.5" fill="#2e2e2e" stroke="#1c1c1c" stroke-width="0.6"/>
+  <rect x="17.2" y="30.7" width="8.6" height="3.6" rx="1.8" fill="#58aa58"/>
+</svg>

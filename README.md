@@ -1,5 +1,7 @@
 # Grape Expectations
 
+![Grape Expectations banner](banner.png)
+
 A RuneLite plugin that tracks wine fermenting at a glance. It draws a compact
 four-row overlay while you make wine:
 
@@ -10,8 +12,14 @@ four-row overlay while you make wine:
 4. **Ferment timer** — a decreasing countdown of seconds until the batch ferments,
    reset each time you start a fresh wine.
 
-> **Status:** early scaffold (`Release 0.1` in progress). The overlay, XP/level
-> projection, fail-chance model, and fermentation timer are tracked as milestone issues.
+> **Status:** `Release 0.1` shipped — overlay, XP/level projection, fail-chance model,
+> fermentation timer, and settings are all in. See the [changelog](CHANGELOG.md).
+
+## Screenshots
+
+<!-- TODO: capture in-client (./gradlew run) during a fermenting session and drop the
+     images in docs/img/, then replace these placeholders. -->
+_Coming soon — the overlay during a fermenting session._
 
 ## Building
 

@@ -164,7 +164,12 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	double getBankedXp()
 	{
-		return WineXpModel.bankedXp(tally.getUnfermentedWine(), getCookingLevel());
+		int unfermented = tally.getUnfermentedWine();
+
+		if (config.xpMode() == XpMode.OPTIMISTIC)
+			return unfermented * (double) WineXpModel.FERMENT_XP;
+
+		return WineXpModel.bankedXp(unfermented, getCookingLevel());
 	}
 
 	LevelProjection getProjection()

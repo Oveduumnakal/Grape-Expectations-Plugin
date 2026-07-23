@@ -24,18 +24,21 @@
  */
 package com.oveduumnakal;
 
+import java.awt.Color;
+
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.ConfigSection;
 
 /**
  * RuneLite configuration for the Grape Expectations plugin.
  *
- * <p>Defines the user-facing settings as defaulted {@code @ConfigItem} accessors.
- * Row-level toggles let the user hide any of the four overlay rows (inventory
- * counts, banked XP, level projection, and the fermentation timer). {@link #GROUP}
- * names the persisted config group. Each accessor's {@code name}/{@code description}
- * is the source of truth shown in the settings UI.
+ * <p>Settings are split into two {@code @ConfigSection}s: which of the four overlay rows to
+ * show, and appearance (banked-XP valuation plus the row 2/3/4 colours). {@link #GROUP} names
+ * the persisted config group. The overlay's on-screen position is set by dragging it (RuneLite
+ * persists that natively), so it is not a config item. Each accessor's {@code name}/
+ * {@code description} is the source of truth shown in the settings UI.
  */
 @ConfigGroup(GrapeExpectationsConfig.GROUP)
 public interface GrapeExpectationsConfig extends Config
@@ -43,10 +46,25 @@ public interface GrapeExpectationsConfig extends Config
 	/** Persisted config group name for all settings in this plugin. */
 	String GROUP = "grapeexpectations";
 
+	@ConfigSection(
+			name = "Rows",
+			description = "Which of the four overlay rows to show",
+			position = 0
+	)
+	String rowsSection = "rows";
+
+	@ConfigSection(
+			name = "Appearance",
+			description = "Banked-XP valuation and overlay colours",
+			position = 1
+	)
+	String appearanceSection = "appearance";
+
 	@ConfigItem(
 			keyName = "showCounts",
 			name = "Show inventory counts",
 			description = "Row 1: grape, jug of water, and fermenting wine counts.",
+			section = rowsSection,
 			position = 1
 	)
 	default boolean showCounts()
@@ -58,6 +76,7 @@ public interface GrapeExpectationsConfig extends Config
 			keyName = "showBankedXp",
 			name = "Show banked XP",
 			description = "Row 2: Cooking XP that will be realized once the wine ferments.",
+			section = rowsSection,
 			position = 2
 	)
 	default boolean showBankedXp()
@@ -69,6 +88,7 @@ public interface GrapeExpectationsConfig extends Config
 			keyName = "showLevelProgress",
 			name = "Show level progress",
 			description = "Row 3: projected level progress bar once the banked XP lands.",
+			section = rowsSection,
 			position = 3
 	)
 	default boolean showLevelProgress()
@@ -80,10 +100,59 @@ public interface GrapeExpectationsConfig extends Config
 			keyName = "showFermentTimer",
 			name = "Show ferment timer",
 			description = "Row 4: countdown until the current batch finishes fermenting.",
+			section = rowsSection,
 			position = 4
 	)
 	default boolean showFermentTimer()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+			keyName = "xpMode",
+			name = "Banked XP mode",
+			description = "Expected weights each wine by its fail chance; Optimistic assumes every wine succeeds.",
+			section = appearanceSection,
+			position = 1
+	)
+	default XpMode xpMode()
+	{
+		return XpMode.EXPECTED;
+	}
+
+	@ConfigItem(
+			keyName = "bankedXpColor",
+			name = "Banked XP colour",
+			description = "Colour of the row 2 banked-XP text.",
+			section = appearanceSection,
+			position = 2
+	)
+	default Color bankedXpColor()
+	{
+		return new Color(255, 193, 87);
+	}
+
+	@ConfigItem(
+			keyName = "levelBarColor",
+			name = "Level bar colour",
+			description = "Fill colour of the row 3 level progress bar.",
+			section = appearanceSection,
+			position = 3
+	)
+	default Color levelBarColor()
+	{
+		return new Color(70, 130, 200);
+	}
+
+	@ConfigItem(
+			keyName = "timerBarColor",
+			name = "Timer bar colour",
+			description = "Fill colour of the row 4 ferment countdown bar.",
+			section = appearanceSection,
+			position = 4
+	)
+	default Color timerBarColor()
+	{
+		return new Color(80, 170, 80);
 	}
 }

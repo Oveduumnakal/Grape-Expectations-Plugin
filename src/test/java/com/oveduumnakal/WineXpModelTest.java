@@ -67,4 +67,47 @@ public class WineXpModelTest
 		LevelProjection projection = WineXpModel.project(xp50, banked);
 		assertEquals(60, projection.getProjectedLevel());
 	}
+
+	@Test
+	public void winesToNextLevelUsesFullRateAboveNoFail()
+	{
+		int xp70 = Experience.getXpForLevel(70);
+		int bracket = Experience.getXpForLevel(71) - xp70;
+		int expected = (int) Math.ceil(bracket / 200.0);
+		assertEquals(expected, WineXpModel.winesToNextLevel(xp70));
+	}
+
+	@Test
+	public void winesToLevelIsZeroAtOrPastTarget()
+	{
+		assertEquals(0, WineXpModel.winesToLevel(Experience.getXpForLevel(80), 75));
+		assertEquals(0, WineXpModel.winesToLevel(Experience.getXpForLevel(75), 75));
+	}
+
+	@Test
+	public void winesToLevelAboveNoFailMatchesFlatRate()
+	{
+		int xp68 = Experience.getXpForLevel(68);
+		int bracket = Experience.getXpForLevel(70) - xp68;
+		int expected = (int) Math.ceil(bracket / 200.0);
+		assertEquals(expected, WineXpModel.winesToLevel(xp68, 70));
+	}
+
+	@Test
+	public void winesToLevelBelowNoFailExceedsFlatRate()
+	{
+		int xp40 = Experience.getXpForLevel(40);
+		int flat = (int) Math.ceil((Experience.getXpForLevel(45) - xp40) / 200.0);
+		assertTrue(WineXpModel.winesToLevel(xp40, 45) > flat);
+	}
+
+	@Test
+	public void winesTo99FromLowLevelIntegratesBrackets()
+	{
+		int xp35 = Experience.getXpForLevel(35);
+		int flat = (int) Math.ceil((Experience.getXpForLevel(99) - xp35) / 200.0);
+		int actual = WineXpModel.winesToLevel(xp35, 99);
+		assertTrue(actual > flat);
+		assertTrue(actual < 2 * flat);
+	}
 }

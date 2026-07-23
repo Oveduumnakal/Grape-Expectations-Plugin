@@ -177,6 +177,16 @@ public class GrapeExpectationsPlugin extends Plugin
 		return WineXpModel.project(getCookingXp(), getBankedXp());
 	}
 
+	int getWinesToNextLevel()
+	{
+		return WineXpModel.winesToNextLevel(getCookingXp());
+	}
+
+	int getWinesTo99()
+	{
+		return WineXpModel.winesToLevel(getCookingXp(), 99);
+	}
+
 	@Provides
 	GrapeExpectationsConfig provideConfig(ConfigManager configManager)
 	{

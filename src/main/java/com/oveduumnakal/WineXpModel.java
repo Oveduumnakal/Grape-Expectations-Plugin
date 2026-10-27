@@ -31,7 +31,7 @@ import net.runelite.api.Experience;
  * projection (overlay row 3).
  *
  * <p>Each unfermented wine that succeeds yields {@link #FERMENT_XP} Cooking XP; the
- * banked total is an expected value weighted by {@link WineFailModel#successRate(int)}
+ * banked total is an expected value weighted by {@link WineFailModel#successRate(WineType, int)}
  * so it reflects the low-level chance of producing bad wine. The projection then walks
  * that expected XP forward from the player's current total to find the level bracket the
  * bar should display.
@@ -48,13 +48,14 @@ public final class WineXpModel
 	/**
 	 * Expected Cooking XP that will be realized once the current batch ferments.
 	 *
+	 * @param type             the wine being fermented
 	 * @param unfermentedCount number of unfermented wines currently held
 	 * @param cookingLevel     the player's Cooking level (drives the success weighting)
 	 * @return the fail-adjusted expected XP
 	 */
-	public static double bankedXp(int unfermentedCount, int cookingLevel)
+	public static double bankedXp(WineType type, int unfermentedCount, int cookingLevel)
 	{
-		return unfermentedCount * (double) FERMENT_XP * WineFailModel.successRate(cookingLevel);
+		return unfermentedCount * (double) FERMENT_XP * WineFailModel.successRate(type, cookingLevel);
 	}
 
 	/**
@@ -83,27 +84,31 @@ public final class WineXpModel
 	/**
 	 * Expected number of successful-or-not wines to ferment to reach the next Cooking level.
 	 *
+	 * @param type      the wine being fermented
 	 * @param currentXp the player's current Cooking XP
 	 * @return wines needed to reach the next level, or 0 once at the virtual level cap
 	 */
-	public static int winesToNextLevel(int currentXp)
+	public static int winesToNextLevel(WineType type, int currentXp)
 	{
-		return winesToLevel(currentXp, Experience.getLevelForXp(currentXp) + 1);
+		return winesToLevel(type, currentXp, Experience.getLevelForXp(currentXp) + 1);
 	}
 
 	/**
 	 * Expected number of wines to ferment to reach {@code targetLevel} from the current XP.
 	 *
 	 * <p>The estimate integrates across level brackets: because the success rate rises with
-	 * Cooking level up to the no-fail level of 68, each bracket is costed at its own expected
+	 * Cooking level up to the wine's no-fail level, each bracket is costed at its own expected
 	 * XP-per-wine ({@code 200 × successRate(bracketLevel)}). This keeps long targets such as
-	 * level 99 accurate when started from a low, failure-prone level.
+	 * level 99 accurate when started from a low, failure-prone level. Brackets below the wine's
+	 * minimum level are costed at the minimum-level rate, since the wine cannot be made there
+	 * and the raw curve can fall to zero.
 	 *
+	 * @param type        the wine being fermented
 	 * @param currentXp   the player's current Cooking XP
 	 * @param targetLevel the Cooking level to reach
 	 * @return the expected wine count, rounded up; 0 if already at or past the target
 	 */
-	public static int winesToLevel(int currentXp, int targetLevel)
+	public static int winesToLevel(WineType type, int currentXp, int targetLevel)
 	{
 		int cappedTarget = Math.min(targetLevel, Experience.MAX_VIRT_LEVEL);
 		int targetXp = Experience.getXpForLevel(cappedTarget);
@@ -117,7 +122,7 @@ public final class WineXpModel
 		for (int level = Experience.getLevelForXp(currentXp); level < cappedTarget; level++)
 		{
 			int bracketEnd = Math.min(Experience.getXpForLevel(level + 1), targetXp);
-			double perWine = FERMENT_XP * WineFailModel.successRate(level);
+			double perWine = FERMENT_XP * WineFailModel.successRate(type, Math.max(level, type.getMinLevel()));
 			wines += (bracketEnd - simXp) / perWine;
 			simXp = bracketEnd;
 		}

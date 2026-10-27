@@ -19,21 +19,21 @@ public class WineXpModelTest
 	@Test
 	public void bankedXpIsZeroWithNoWine()
 	{
-		assertEquals(0.0, WineXpModel.bankedXp(0, 50), DELTA);
+		assertEquals(0.0, WineXpModel.bankedXp(WineType.REGULAR, 0, 50), DELTA);
 	}
 
 	@Test
 	public void bankedXpIsFullAboveNoFailLevel()
 	{
-		assertEquals(2000.0, WineXpModel.bankedXp(10, 70), DELTA);
+		assertEquals(2000.0, WineXpModel.bankedXp(WineType.REGULAR, 10, 70), DELTA);
 	}
 
 	@Test
 	public void bankedXpIsFailAdjustedBelowNoFailLevel()
 	{
-		double expected = 10 * 200 * WineFailModel.successRate(35);
-		assertEquals(expected, WineXpModel.bankedXp(10, 35), DELTA);
-		assertTrue(WineXpModel.bankedXp(10, 35) < 2000.0);
+		double expected = 10 * 200 * WineFailModel.successRate(WineType.REGULAR, 35);
+		assertEquals(expected, WineXpModel.bankedXp(WineType.REGULAR, 10, 35), DELTA);
+		assertTrue(WineXpModel.bankedXp(WineType.REGULAR, 10, 35) < 2000.0);
 	}
 
 	@Test
@@ -74,14 +74,14 @@ public class WineXpModelTest
 		int xp70 = Experience.getXpForLevel(70);
 		int bracket = Experience.getXpForLevel(71) - xp70;
 		int expected = (int) Math.ceil(bracket / 200.0);
-		assertEquals(expected, WineXpModel.winesToNextLevel(xp70));
+		assertEquals(expected, WineXpModel.winesToNextLevel(WineType.REGULAR, xp70));
 	}
 
 	@Test
 	public void winesToLevelIsZeroAtOrPastTarget()
 	{
-		assertEquals(0, WineXpModel.winesToLevel(Experience.getXpForLevel(80), 75));
-		assertEquals(0, WineXpModel.winesToLevel(Experience.getXpForLevel(75), 75));
+		assertEquals(0, WineXpModel.winesToLevel(WineType.REGULAR, Experience.getXpForLevel(80), 75));
+		assertEquals(0, WineXpModel.winesToLevel(WineType.REGULAR, Experience.getXpForLevel(75), 75));
 	}
 
 	@Test
@@ -90,7 +90,7 @@ public class WineXpModelTest
 		int xp68 = Experience.getXpForLevel(68);
 		int bracket = Experience.getXpForLevel(70) - xp68;
 		int expected = (int) Math.ceil(bracket / 200.0);
-		assertEquals(expected, WineXpModel.winesToLevel(xp68, 70));
+		assertEquals(expected, WineXpModel.winesToLevel(WineType.REGULAR, xp68, 70));
 	}
 
 	@Test
@@ -98,7 +98,7 @@ public class WineXpModelTest
 	{
 		int xp40 = Experience.getXpForLevel(40);
 		int flat = (int) Math.ceil((Experience.getXpForLevel(45) - xp40) / 200.0);
-		assertTrue(WineXpModel.winesToLevel(xp40, 45) > flat);
+		assertTrue(WineXpModel.winesToLevel(WineType.REGULAR, xp40, 45) > flat);
 	}
 
 	@Test
@@ -106,8 +106,32 @@ public class WineXpModelTest
 	{
 		int xp35 = Experience.getXpForLevel(35);
 		int flat = (int) Math.ceil((Experience.getXpForLevel(99) - xp35) / 200.0);
-		int actual = WineXpModel.winesToLevel(xp35, 99);
+		int actual = WineXpModel.winesToLevel(WineType.REGULAR, xp35, 99);
 		assertTrue(actual > flat);
 		assertTrue(actual < 2 * flat);
+	}
+
+	@Test
+	public void zamorakBankedXpIsFailAdjustedBelow98()
+	{
+		double expected = 10 * 200 * WineFailModel.successRate(WineType.ZAMORAK, 80);
+		assertEquals(expected, WineXpModel.bankedXp(WineType.ZAMORAK, 10, 80), DELTA);
+		assertEquals(2000.0, WineXpModel.bankedXp(WineType.ZAMORAK, 10, 98), DELTA);
+	}
+
+	@Test
+	public void zamorakNeedsMoreWinesThanRegularBetween68And98()
+	{
+		int xp70 = Experience.getXpForLevel(70);
+		int zamorak = WineXpModel.winesToNextLevel(WineType.ZAMORAK, xp70);
+		assertTrue(zamorak > WineXpModel.winesToNextLevel(WineType.REGULAR, xp70));
+	}
+
+	@Test
+	public void zamorakBelowMinLevelStaysFinite()
+	{
+		int xp10 = Experience.getXpForLevel(10);
+		int wines = WineXpModel.winesToNextLevel(WineType.ZAMORAK, xp10);
+		assertTrue(wines > 0 && wines < 1000);
 	}
 }

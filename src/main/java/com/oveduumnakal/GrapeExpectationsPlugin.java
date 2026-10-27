@@ -24,6 +24,9 @@
  */
 package com.oveduumnakal;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 import javax.inject.Inject;
 
 import com.google.inject.Provides;
@@ -51,8 +54,9 @@ import net.runelite.client.ui.overlay.OverlayManager;
  * <p>Inventory and bank changes recompute the {@link WineTally}; each tick, once those changes
  * have settled, a rise in the combined unfermented count restarts the {@link FermentTimer}
  * (matching the in-game restart-on-new-wine behaviour) while a transfer between the two
- * containers leaves it alone, and the timer is cleared once the batch converts. Cooking level
- * and XP are read
+ * containers leaves it alone, and the timer is cleared once the batch converts. Counts are kept
+ * for every {@link WineType}, and the configured type picks which one the overlay follows, so
+ * switching the setting takes effect without reopening the bank. Cooking level and XP are read
  * live from the client so the banked-XP and level-projection rows stay current. All state
  * is reset on logout or world hop.
  */
@@ -78,14 +82,16 @@ public class GrapeExpectationsPlugin extends Plugin
 	private final FermentTimer timer = new FermentTimer();
 
 	private GrapeExpectationsOverlay overlay;
-	private WineTally inventory = WineTally.EMPTY;
-	private WineTally bank = WineTally.EMPTY;
+	private final Map<WineType, WineTally> inventory = new EnumMap<>(WineType.class);
+	private final Map<WineType, WineTally> bank = new EnumMap<>(WineType.class);
 	private volatile WineTally tally = WineTally.EMPTY;
+	private volatile WineType wineType = WineType.REGULAR;
 	private int previousUnfermented;
 
 	@Override
 	protected void startUp()
 	{
+		wineType = config.wineType();
 		overlay = new GrapeExpectationsOverlay(this, config, itemManager);
 		overlayManager.add(overlay);
 	}
@@ -104,39 +110,49 @@ public class GrapeExpectationsPlugin extends Plugin
 		ItemContainer container = event.getItemContainer();
 
 		if (event.getContainerId() == InventoryID.INV)
-			inventory = tallyOf(container);
+			putTallies(inventory, container);
 		else if (event.getContainerId() == InventoryID.BANK)
-			bank = tallyOf(container);
+			putTallies(bank, container);
 		else
 			return;
 
 		recomputeTally();
 	}
 
-	/** Snapshots the four wine-relevant counts from an item container. */
-	private static WineTally tallyOf(ItemContainer container)
+	/** Snapshots the four wine-relevant counts of every wine type from an item container. */
+	private static void putTallies(Map<WineType, WineTally> tallies, ItemContainer container)
 	{
-		return new WineTally(
-				container.count(ItemID.GRAPES),
-				container.count(ItemID.JUG_WATER),
-				container.count(ItemID.JUG_UNFERMENTED_WINE),
-				container.count(ItemID.JUG_WINE));
+		for (WineType type : WineType.values())
+		{
+			tallies.put(type, new WineTally(
+					container.count(type.getGrapesId()),
+					container.count(ItemID.JUG_WATER),
+					container.count(type.getUnfermentedId()),
+					container.count(type.getWineId())));
+		}
 	}
 
-	/** Combines the last-seen inventory and bank counts into the overlay-facing tally. */
+	/** Combines the last-seen inventory and bank counts of the followed wine into the overlay-facing tally. */
 	private void recomputeTally()
 	{
+		WineTally held = inventory.getOrDefault(wineType, WineTally.EMPTY);
+		WineTally banked = bank.getOrDefault(wineType, WineTally.EMPTY);
+
 		tally = new WineTally(
-				inventory.getGrapes() + bank.getGrapes(),
-				inventory.getJugsOfWater() + bank.getJugsOfWater(),
-				inventory.getUnfermentedWine() + bank.getUnfermentedWine(),
-				inventory.getJugsOfWine() + bank.getJugsOfWine());
+				held.getGrapes() + banked.getGrapes(),
+				held.getJugsOfWater() + banked.getJugsOfWater(),
+				held.getUnfermentedWine() + banked.getUnfermentedWine(),
+				held.getJugsOfWine() + banked.getJugsOfWine());
 	}
 
 	/**
 	 * Advances the ferment timer once per tick, after container changes have settled.
 	 *
-	 * <p>First handles batch expiry: when the ferment window elapses the whole batch converts,
+	 * <p>First picks up a change to the configured wine type: the tally switches to the new type's
+	 * counts and the countdown is cleared, with the new count taken as the baseline so the switch
+	 * itself does not read as freshly made wine.
+	 *
+	 * <p>Then handles batch expiry: when the ferment window elapses the whole batch converts,
 	 * so the unfermented counts are zeroed and the timer cleared. This also covers bank-held
 	 * batches, which fire no container event when they ferment.
 	 *
@@ -152,10 +168,21 @@ public class GrapeExpectationsPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		WineType configured = config.wineType();
+
+		if (configured != wineType)
+		{
+			wineType = configured;
+			recomputeTally();
+			timer.clear();
+			previousUnfermented = tally.getUnfermentedWine();
+			return;
+		}
+
 		if (timer.isActive() && timer.remainingTicks(client.getTickCount()) <= 0)
 		{
-			inventory = inventory.withoutUnfermented();
-			bank = bank.withoutUnfermented();
+			inventory.replaceAll((type, counts) -> counts.withoutUnfermented());
+			bank.replaceAll((type, counts) -> counts.withoutUnfermented());
 			recomputeTally();
 			timer.clear();
 			previousUnfermented = 0;
@@ -183,11 +210,16 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	private void reset()
 	{
-		inventory = WineTally.EMPTY;
-		bank = WineTally.EMPTY;
+		inventory.clear();
+		bank.clear();
 		tally = WineTally.EMPTY;
 		timer.clear();
 		previousUnfermented = 0;
+	}
+
+	WineType getWineType()
+	{
+		return wineType;
 	}
 
 	WineTally getTally()
@@ -222,7 +254,7 @@ public class GrapeExpectationsPlugin extends Plugin
 
 	double getBankedXp()
 	{
-		return WineXpModel.bankedXp(tally.getUnfermentedWine(), getCookingLevel());
+		return WineXpModel.bankedXp(wineType, tally.getUnfermentedWine(), getCookingLevel());
 	}
 
 	LevelProjection getProjection()
@@ -243,7 +275,7 @@ public class GrapeExpectationsPlugin extends Plugin
 	{
 		double projectedXp = Math.min(getCookingXp() + getBankedXp(), Experience.MAX_SKILL_XP);
 
-		return WineXpModel.winesToNextLevel((int) Math.floor(projectedXp));
+		return WineXpModel.winesToNextLevel(wineType, (int) Math.floor(projectedXp));
 	}
 
 	@Provides

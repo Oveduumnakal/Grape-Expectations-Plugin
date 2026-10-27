@@ -17,37 +17,66 @@ public class WineFailModelTest
 	@Test
 	public void guaranteedAtOrAboveNoFailLevel()
 	{
-		assertEquals(1.0, WineFailModel.successRate(68), DELTA);
-		assertEquals(1.0, WineFailModel.successRate(80), DELTA);
-		assertEquals(1.0, WineFailModel.successRate(99), DELTA);
+		assertEquals(1.0, WineFailModel.successRate(WineType.REGULAR, 68), DELTA);
+		assertEquals(1.0, WineFailModel.successRate(WineType.REGULAR, 80), DELTA);
+		assertEquals(1.0, WineFailModel.successRate(WineType.REGULAR, 99), DELTA);
 	}
 
 	@Test
 	public void matchesLowAnchorAtLevelOne()
 	{
-		assertEquals(0.19, WineFailModel.successRate(1), DELTA);
+		assertEquals(0.19, WineFailModel.successRate(WineType.REGULAR, 1), DELTA);
 	}
 
 	@Test
 	public void matchesKnownRateAtMinLevel()
 	{
-		assertEquals(0.602857, WineFailModel.successRate(35), 1e-4);
+		assertEquals(0.602857, WineFailModel.successRate(WineType.REGULAR, 35), 1e-4);
+	}
+
+	@Test
+	public void zamorakMatchesKnownRateAtMinLevel()
+	{
+		assertEquals(0.494, WineFailModel.successRate(WineType.ZAMORAK, 65), 1e-3);
+	}
+
+	@Test
+	public void zamorakFailsUntilLevel98()
+	{
+		assertTrue(WineFailModel.successRate(WineType.ZAMORAK, 97) < 1.0);
+		assertEquals(1.0, WineFailModel.successRate(WineType.ZAMORAK, 98), DELTA);
 	}
 
 	@Test
 	public void increasesMonotonicallyUpToNoFail()
 	{
-		for (int level = WineFailModel.MIN_LEVEL; level < WineFailModel.NO_FAIL_LEVEL; level++)
-			assertTrue(WineFailModel.successRate(level) < WineFailModel.successRate(level + 1));
+		for (WineType type : WineType.values())
+		{
+			for (int level = type.getMinLevel(); level < type.getNoFailLevel(); level++)
+				assertTrue(WineFailModel.successRate(type, level) < WineFailModel.successRate(type, level + 1));
+		}
+	}
+
+	@Test
+	public void reachesCertaintyExactlyAtNoFailLevel()
+	{
+		for (WineType type : WineType.values())
+		{
+			assertTrue(WineFailModel.successRate(type, type.getNoFailLevel() - 1) < 1.0);
+			assertEquals(1.0, WineFailModel.successRate(type, type.getNoFailLevel()), DELTA);
+		}
 	}
 
 	@Test
 	public void staysWithinUnitRange()
 	{
-		for (int level = 1; level <= 99; level++)
+		for (WineType type : WineType.values())
 		{
-			double rate = WineFailModel.successRate(level);
-			assertTrue(rate >= 0.0 && rate <= 1.0);
+			for (int level = 1; level <= 99; level++)
+			{
+				double rate = WineFailModel.successRate(type, level);
+				assertTrue(rate >= 0.0 && rate <= 1.0);
+			}
 		}
 	}
 }

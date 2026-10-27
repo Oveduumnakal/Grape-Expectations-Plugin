@@ -149,7 +149,7 @@ public class GrapeExpectationsOverlay extends Overlay
 
 		if (showXp)
 		{
-			boolean guaranteed = plugin.getCookingLevel() >= WineFailModel.NO_FAIL_LEVEL;
+			boolean guaranteed = plugin.getCookingLevel() >= plugin.getWineType().getNoFailLevel();
 			String text = estXpText(plugin.getBankedXp(), guaranteed);
 			int textX = PAD + (CONTENT_WIDTH - fm.stringWidth(text)) / 2;
 			graphics.setColor(config.bankedXpColor());
@@ -171,7 +171,8 @@ public class GrapeExpectationsOverlay extends Overlay
 	/** Draws the three icon-and-count segments of row 1, one centred in each equal third. */
 	private void drawCounts(Graphics2D g, FontMetrics fm, int x, int y, WineTally tally)
 	{
-		int[] ids = {ItemID.GRAPES, ItemID.JUG_WATER, ItemID.JUG_UNFERMENTED_WINE};
+		WineType type = plugin.getWineType();
+		int[] ids = {type.getGrapesId(), ItemID.JUG_WATER, type.getUnfermentedId()};
 		int[] counts = {tally.getGrapes(), tally.getJugsOfWater(), tally.getUnfermentedWine()};
 		int cellWidth = CONTENT_WIDTH / ids.length;
 

@@ -25,15 +25,15 @@
 package com.oveduumnakal;
 
 /**
- * Probability that a single unfermented wine ferments successfully into a jug of
- * wine (rather than a jug of bad wine, which yields no experience).
+ * Probability that a single unfermented wine ferments successfully into its finished wine
+ * (rather than a jug of bad wine, which yields no experience).
  *
- * <p>Per Mod Ash (archived at reldo.runescape.wiki/i/97499), the success chance
- * interpolates linearly from 19% to 138% across Cooking levels 1–99, with any value at
- * or above 100% meaning a guaranteed success. That formula reproduces both known data
- * points: roughly 60% success (~40% failure) at the level-35 minimum, and 100% success
- * at the documented no-fail level of 68 (the curve reaches 100% at level ≈ 67.7). The raw
- * formula is kept here — tunable in one place — rather than a hand-built lookup table.
+ * <p>Each {@link WineType} carries a linear success curve from its {@code lowChance} at
+ * Cooking level 1 to its {@code highChance} at level 99, with any value at or above 100%
+ * meaning a guaranteed success. For regular wine (Mod Ash's 19%–138%) that reproduces both
+ * known data points: roughly 60% success at the level-35 minimum and 100% at the documented
+ * no-fail level of 68. For wine of Zamorak it gives about 50% at level 65 and 100% at 98. The
+ * raw curves are kept on the enum — tunable in one place — rather than hand-built lookup tables.
  *
  * <p>Note: in-game the batch is rolled in chunks (roughly 15 batches plus a remainder)
  * rather than per wine, so a single batch's realized count varies around this rate. The
@@ -42,31 +42,24 @@ package com.oveduumnakal;
  */
 public final class WineFailModel
 {
-	/** Lowest Cooking level at which wine can be fermented at all. */
-	public static final int MIN_LEVEL = 35;
-
-	/** Cooking level at or above which fermenting never fails. */
-	public static final int NO_FAIL_LEVEL = 68;
-
-	private static final double LOW_CHANCE = 19.0;
-	private static final double HIGH_CHANCE = 138.0;
-
 	private WineFailModel()
 	{
 	}
 
 	/**
-	 * Success probability in the range [0, 1] for the given Cooking level.
+	 * Success probability in the range [0, 1] for the given wine and Cooking level.
 	 *
+	 * @param type         the wine being fermented
 	 * @param cookingLevel the player's current Cooking level
-	 * @return 1.0 at or above {@link #NO_FAIL_LEVEL}, otherwise the interpolated chance
+	 * @return 1.0 at or above the wine's no-fail level, otherwise the interpolated chance
 	 */
-	public static double successRate(int cookingLevel)
+	public static double successRate(WineType type, int cookingLevel)
 	{
-		if (cookingLevel >= NO_FAIL_LEVEL)
+		if (cookingLevel >= type.getNoFailLevel())
 			return 1.0;
 
-		double chance = (LOW_CHANCE + (HIGH_CHANCE - LOW_CHANCE) * (cookingLevel - 1) / 98.0) / 100.0;
+		double low = type.getLowChance();
+		double chance = (low + (type.getHighChance() - low) * (cookingLevel - 1) / 98.0) / 100.0;
 
 		return Math.max(0.0, Math.min(1.0, chance));
 	}

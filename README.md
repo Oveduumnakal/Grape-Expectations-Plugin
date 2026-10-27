@@ -3,7 +3,7 @@
 </p>
 <h1 align="center">Grape Expectations</h1>
 
-Grape Expectations is a RuneLite plugin that keeps an eye on your wine while it ferments. As you turn grapes and jugs of water into wine, a compact overlay shows what you're holding, the Cooking XP the current batch will bank, how close that puts you to your next level, and a live countdown until the wine is done. It only tracks standard wine — **grapes + jug of water → unfermented wine → jug of wine** — and every number accounts for the level-based chance of a wine spoiling, so what you see is what you can actually expect.
+Grape Expectations is a RuneLite plugin that keeps an eye on your wine while it ferments. As you turn grapes and jugs of water into wine, a compact overlay shows what you're holding, the Cooking XP the current batch will bank, how close that puts you to your next level, and a live countdown until the wine is done. It tracks either regular wine — **grapes + jug of water → unfermented wine → jug of wine** — or **wine of Zamorak** from Zamorak's grapes, and every number accounts for the level-based chance of a wine spoiling, so what you see is what you can actually expect.
 
 ## Features
 
@@ -35,9 +35,13 @@ Grape Expectations is a RuneLite plugin that keeps an eye on your wine while it 
 
 - **Expected XP, not a best case**
 
-  Below level 68 some wine ferments into bad wine and gives nothing. Grape Expectations uses the real level-based success chance, so the banked XP and the level projection reflect what you'll actually get — not a lucky run.
+  Below level 68 some wine ferments into bad wine and gives nothing (below 98 for wine of Zamorak). Grape Expectations uses the real level-based success chance for the wine you're making, so the banked XP and the level projection reflect what you'll actually get — not a lucky run.
 
 ### Make it yours
+
+- **Pick your wine**
+
+  Choose **Jug of wine** or **Wine of Zamorak** in the settings; the counts, XP, and level estimates switch to that wine's grapes and success curve.
 
 - **Show only what you want**
 

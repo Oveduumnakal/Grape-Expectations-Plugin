@@ -34,8 +34,8 @@ import net.runelite.client.config.ConfigSection;
 /**
  * RuneLite configuration for the Grape Expectations plugin.
  *
- * <p>Settings are split into two {@code @ConfigSection}s: which of the four overlay rows to
- * show, and appearance (the estimated-XP text and bar colors). {@link #GROUP} names
+ * <p>The wine type to follow sits above two {@code @ConfigSection}s: which of the four overlay
+ * rows to show, and appearance (the estimated-XP text and bar colors). {@link #GROUP} names
  * the persisted config group. The overlay's on-screen position is set by dragging it (RuneLite
  * persists that natively), so it is not a config item. Each accessor's {@code name}/
  * {@code description} is the source of truth shown in the settings UI.
@@ -49,16 +49,27 @@ public interface GrapeExpectationsConfig extends Config
 	@ConfigSection(
 			name = "Rows",
 			description = "Which of the four overlay rows to show",
-			position = 0
+			position = 1
 	)
 	String rowsSection = "rows";
 
 	@ConfigSection(
 			name = "Appearance",
 			description = "Overlay text and bar colors",
-			position = 1
+			position = 2
 	)
 	String appearanceSection = "appearance";
+
+	@ConfigItem(
+			keyName = "wineType",
+			name = "Wine type",
+			description = "Which wine to track: jug of wine from grapes, or wine of Zamorak from Zamorak's grapes.",
+			position = 0
+	)
+	default WineType wineType()
+	{
+		return WineType.REGULAR;
+	}
 
 	@ConfigItem(
 			keyName = "showCounts",

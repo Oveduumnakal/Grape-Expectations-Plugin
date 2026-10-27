@@ -1,5 +1,16 @@
 # Changelog
 
+## Release 1.1
+
+Grape Expectations now follows **wine of Zamorak** as well as regular wine.
+
+### New
+- **Wine type setting:** choose **Jug of wine** or **Wine of Zamorak** at the top of the plugin
+  settings. The counts, estimated XP, level bar, and wines-to-next-level all switch to the chosen
+  wine's grapes and success rate. ([#25](https://github.com/Oveduumnakal/Grape-Expectations-Plugin/issues/25))
+- Wine of Zamorak uses its own fail curve: about 50% success at 65 Cooking, guaranteed from 98, so
+  the XP row reads as exact (no "Est.") only once you reach 98.
+
 ## Release 1.0
 
 The first stable release. Grape Expectations now follows a whole fermenting session — including
